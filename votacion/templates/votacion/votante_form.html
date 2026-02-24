@@ -1,0 +1,140 @@
+{% extends 'votacion/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ titulo }} - Colombia Vota{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'votante_lista' %}" class="text-decoration-none">Votantes</a></li>
+<li class="breadcrumb-item active">{{ titulo }}</li>
+{% endblock %}
+
+{% block content %}
+<h4 class="fw-bold mb-4"><i class="bi bi-person-badge text-primary me-2"></i>{{ titulo }}</h4>
+
+<div class="card form-card">
+    <div class="card-body p-4">
+        {% if from_encuestador %}
+        <div class="alert alert-info d-flex align-items-center gap-2 mb-3">
+          <i class="bi bi-info-circle-fill"></i>
+          <span>El ciudadano no está registrado. Complete sus datos para continuar con la encuesta.</span>
+        </div>
+        {% endif %}
+        <form method="post" id="votanteForm">
+            {% csrf_token %}
+            {% if from_encuestador %}<input type="hidden" name="from_encuestador" value="1">{% endif %}
+            {% crispy form %}
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const urlMunicipios = "{% url 'api_municipios' %}";
+const urlPuestos = "{% url 'api_puestos' %}";
+const urlMesas = "{% url 'api_mesas' %}";
+
+function resetSelect(sel, placeholder) {
+    sel.innerHTML = `<option value="">${placeholder}</option>`;
+    sel.disabled = true;
+}
+
+function cargarMunicipios(depId) {
+    const selMun = document.getElementById('id_municipio');
+    const selPuesto = document.getElementById('id_puesto');
+    const selMesa = document.getElementById('id_mesa');
+    resetSelect(selMun, 'Seleccione municipio...');
+    resetSelect(selPuesto, 'Seleccione puesto...');
+    resetSelect(selMesa, 'Seleccione mesa...');
+
+    if (!depId) return;
+    fetch(`${urlMunicipios}?departamento_id=${depId}`)
+        .then(r => r.json())
+        .then(data => {
+            selMun.disabled = false;
+            data.municipios.forEach(m => {
+                selMun.innerHTML += `<option value="${m.id}">${m.nombre}</option>`;
+            });
+        });
+}
+
+function cargarPuestos(munId) {
+    const selPuesto = document.getElementById('id_puesto');
+    const selMesa = document.getElementById('id_mesa');
+    resetSelect(selPuesto, 'Seleccione puesto...');
+    resetSelect(selMesa, 'Seleccione mesa...');
+
+    if (!munId) return;
+    fetch(`${urlPuestos}?municipio_id=${munId}`)
+        .then(r => r.json())
+        .then(data => {
+            selPuesto.disabled = false;
+            data.puestos.forEach(p => {
+                selPuesto.innerHTML += `<option value="${p.id}">${p.nombre} - ${p.direccion}</option>`;
+            });
+        });
+}
+
+function cargarMesas(puestoId) {
+    const selMesa = document.getElementById('id_mesa');
+    resetSelect(selMesa, 'Seleccione mesa...');
+
+    if (!puestoId) return;
+    fetch(`${urlMesas}?puesto_id=${puestoId}`)
+        .then(r => r.json())
+        .then(data => {
+            selMesa.disabled = false;
+            data.mesas.forEach(m => {
+                const zona = m.zona ? ` (${m.zona})` : '';
+                selMesa.innerHTML += `<option value="${m.id}">Mesa ${m.numero}${zona}</option>`;
+            });
+        });
+}
+
+// Si hay valores iniciales (edición), pre-cargar cascadas
+document.addEventListener('DOMContentLoaded', function() {
+    const depSel = document.getElementById('id_departamento');
+    const munSel = document.getElementById('id_municipio');
+    const puestoSel = document.getElementById('id_puesto');
+    const mesaSel = document.getElementById('id_mesa');
+
+    // Restore selected values in edit mode
+    const initialMun = "{{ form.instance.municipio_id|default:'' }}";
+    const initialPuesto = "{{ form.instance.puesto_id|default:'' }}";
+    const initialMesa = "{{ form.instance.mesa_id|default:'' }}";
+
+    if (depSel.value && initialMun) {
+        fetch(`${urlMunicipios}?departamento_id=${depSel.value}`)
+            .then(r => r.json())
+            .then(data => {
+                munSel.disabled = false;
+                data.municipios.forEach(m => {
+                    munSel.innerHTML += `<option value="${m.id}" ${m.id == initialMun ? 'selected' : ''}>${m.nombre}</option>`;
+                });
+                if (initialPuesto) {
+                    return fetch(`${urlPuestos}?municipio_id=${initialMun}`);
+                }
+            })
+            .then(r => r && r.json())
+            .then(data => {
+                if (!data) return;
+                puestoSel.disabled = false;
+                data.puestos.forEach(p => {
+                    puestoSel.innerHTML += `<option value="${p.id}" ${p.id == initialPuesto ? 'selected' : ''}>${p.nombre}</option>`;
+                });
+                if (initialMesa) {
+                    return fetch(`${urlMesas}?puesto_id=${initialPuesto}`);
+                }
+            })
+            .then(r => r && r.json())
+            .then(data => {
+                if (!data) return;
+                mesaSel.disabled = false;
+                data.mesas.forEach(m => {
+                    const zona = m.zona ? ` (${m.zona})` : '';
+                    mesaSel.innerHTML += `<option value="${m.id}" ${m.id == initialMesa ? 'selected' : ''}>Mesa ${m.numero}${zona}</option>`;
+                });
+            });
+    }
+});
+</script>
+{% endblock %}

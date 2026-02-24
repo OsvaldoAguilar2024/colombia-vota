@@ -1,0 +1,57 @@
+{% extends 'votacion/base.html' %}
+
+{% block title %}Partidos Políticos - Colombia Vota{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Partidos Políticos</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="fw-bold mb-0"><i class="bi bi-flag text-secondary me-2"></i>Partidos Políticos</h4>
+    <a href="{% url 'partido_crear' %}" class="btn btn-secondary">
+        <i class="bi bi-plus-circle me-1"></i><span class="d-none d-sm-inline">Nuevo Partido</span>
+    </a>
+</div>
+
+<div class="row g-3">
+    {% for partido in partidos %}
+    <div class="col-12 col-sm-6 col-lg-4">
+        <div class="card form-card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-start gap-3">
+                    {% if partido.logo %}
+                    <img src="{{ partido.logo.url }}" style="width:50px;height:50px;object-fit:contain;" alt="{{ partido.sigla }}">
+                    {% else %}
+                    <div class="rounded d-flex align-items-center justify-content-center text-white fw-bold" style="width:50px;height:50px;background-color:{{ partido.color }};font-size:0.8rem;">
+                        {{ partido.sigla|truncatechars:4 }}
+                    </div>
+                    {% endif %}
+                    <div class="flex-grow-1">
+                        <div class="fw-bold">{{ partido.nombre }}</div>
+                        <div class="text-muted small">
+                            <span class="badge" style="background-color:{{ partido.color }}">{{ partido.sigla }}</span>
+                            <span class="ms-2">{{ partido.num_candidatos }} candidato{{ partido.num_candidatos|pluralize }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-white d-flex gap-2">
+                <a href="{% url 'partido_editar' partido.pk %}" class="btn btn-sm btn-outline-warning flex-grow-1">
+                    <i class="bi bi-pencil me-1"></i>Editar
+                </a>
+                <a href="{% url 'partido_eliminar' partido.pk %}" class="btn btn-sm btn-outline-danger">
+                    <i class="bi bi-trash"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-flag fs-2 d-block mb-2"></i>
+            No hay partidos registrados
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

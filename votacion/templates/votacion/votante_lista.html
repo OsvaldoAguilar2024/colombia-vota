@@ -1,0 +1,111 @@
+{% extends 'votacion/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Votantes - Colombia Vota{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Votantes</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="fw-bold mb-0"><i class="bi bi-people text-primary me-2"></i>Votantes</h4>
+    <a href="{% url 'votante_crear' %}" class="btn btn-primary">
+        <i class="bi bi-person-plus me-1"></i><span class="d-none d-sm-inline">Registrar Votante</span>
+    </a>
+</div>
+
+<!-- Filtros -->
+<div class="card form-card mb-4">
+    <div class="card-body">
+        <h6 class="fw-bold mb-3 text-muted"><i class="bi bi-funnel me-2"></i>Buscar</h6>
+        {% crispy form %}
+    </div>
+</div>
+
+<!-- Tabla -->
+<div class="card table-card">
+    <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between">
+        <span class="fw-semibold">{{ total }} votante{{ total|pluralize }} encontrado{{ total|pluralize }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Cédula</th>
+                    <th>Nombre</th>
+                    <th class="d-none d-md-table-cell">Departamento</th>
+                    <th class="d-none d-md-table-cell">Municipio</th>
+                    <th class="d-none d-lg-table-cell">Puesto</th>
+                    <th class="d-none d-lg-table-cell">Mesa</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for votante in page_obj %}
+                <tr>
+                    <td><code>{{ votante.cedula }}</code></td>
+                    <td>
+                        <div class="fw-semibold">{{ votante.nombre_completo }}</div>
+                        <div class="text-muted small d-md-none">{{ votante.municipio }}</div>
+                    </td>
+                    <td class="d-none d-md-table-cell">{{ votante.departamento|default:"-" }}</td>
+                    <td class="d-none d-md-table-cell">{{ votante.municipio|default:"-" }}</td>
+                    <td class="d-none d-lg-table-cell">{{ votante.puesto|default:"-" }}</td>
+                    <td class="d-none d-lg-table-cell">
+                        {% if votante.mesa %}
+                        <span class="badge bg-primary">Mesa {{ votante.mesa.numero }}</span>
+                        {% else %}-{% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex gap-1">
+                            <a href="{% url 'votante_detalle' votante.pk %}" class="btn btn-sm btn-outline-primary" title="Ver">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{% url 'votante_editar' votante.pk %}" class="btn btn-sm btn-outline-warning" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a href="{% url 'votante_eliminar' votante.pk %}" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-5 text-muted">
+                        <i class="bi bi-person-x fs-2 d-block mb-2"></i>
+                        No se encontraron votantes
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="card-footer bg-white">
+        <nav>
+            <ul class="pagination justify-content-center mb-0">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+                {% endif %}
+                <li class="page-item disabled">
+                    <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                </li>
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

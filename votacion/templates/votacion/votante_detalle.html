@@ -1,0 +1,129 @@
+{% extends 'votacion/base.html' %}
+
+{% block title %}{{ votante.nombre_completo }} - Colombia Vota{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'votante_lista' %}" class="text-decoration-none">Votantes</a></li>
+<li class="breadcrumb-item active">Detalle</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="fw-bold mb-0"><i class="bi bi-person-circle text-primary me-2"></i>{{ votante.nombre_completo }}</h4>
+    <div class="d-flex gap-2">
+        <a href="{% url 'votante_editar' votante.pk %}" class="btn btn-warning">
+            <i class="bi bi-pencil me-1"></i>Editar
+        </a>
+        <a href="{% url 'votante_eliminar' votante.pk %}" class="btn btn-danger">
+            <i class="bi bi-trash me-1"></i>Eliminar
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card form-card h-100">
+            <div class="card-header bg-white py-3">
+                <h6 class="fw-bold mb-0"><i class="bi bi-person text-primary me-2"></i>Datos Personales</h6>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-5 text-muted">Cédula</dt>
+                    <dd class="col-7"><code class="fs-6">{{ votante.cedula }}</code></dd>
+
+                    <dt class="col-5 text-muted">Nombre</dt>
+                    <dd class="col-7">{{ votante.nombre_completo }}</dd>
+
+                    <dt class="col-5 text-muted">Email</dt>
+                    <dd class="col-7">{{ votante.email|default:"-" }}</dd>
+
+                    <dt class="col-5 text-muted">Teléfono</dt>
+                    <dd class="col-7">{{ votante.telefono|default:"-" }}</dd>
+
+                    <dt class="col-5 text-muted">Fecha Nac.</dt>
+                    <dd class="col-7">{{ votante.fecha_nacimiento|default:"-" }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card form-card h-100">
+            <div class="card-header bg-white py-3">
+                <h6 class="fw-bold mb-0"><i class="bi bi-geo-alt text-danger me-2"></i>Lugar de Votación</h6>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-5 text-muted">Departamento</dt>
+                    <dd class="col-7">{{ votante.departamento|default:"-" }}</dd>
+
+                    <dt class="col-5 text-muted">Municipio</dt>
+                    <dd class="col-7">{{ votante.municipio|default:"-" }}</dd>
+
+                    <dt class="col-5 text-muted">Puesto</dt>
+                    <dd class="col-7">{{ votante.puesto.nombre|default:"-" }}</dd>
+
+                    {% if votante.puesto %}
+                    <dt class="col-5 text-muted">Dirección</dt>
+                    <dd class="col-7">{{ votante.puesto.direccion }}</dd>
+                    {% endif %}
+
+                    <dt class="col-5 text-muted">Mesa</dt>
+                    <dd class="col-7">
+                        {% if votante.mesa %}
+                        <span class="badge bg-primary fs-6">Mesa {{ votante.mesa.numero }}</span>
+                        {% if votante.mesa.zona %}<span class="text-muted small ms-1">{{ votante.mesa.zona }}</span>{% endif %}
+                        {% else %}-{% endif %}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Carnet de votante -->
+{% if votante.puesto and votante.mesa %}
+<div class="card form-card mt-3">
+    <div class="card-header bg-white py-3">
+        <h6 class="fw-bold mb-0"><i class="bi bi-card-text text-success me-2"></i>Comprobante de Inscripción</h6>
+    </div>
+    <div class="card-body">
+        <div class="border rounded-3 p-4" style="max-width:500px;background:linear-gradient(135deg,#f8f9fa,#e9f5ff);">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <div style="height:8px;flex:1;background:linear-gradient(to right,#FCD116 40%,#003893 40% 60%,#CE1126 60%);border-radius:4px;"></div>
+            </div>
+            <h6 class="text-primary fw-bold text-center mb-3">REGISTRO ELECTORAL - COLOMBIA</h6>
+            <div class="row g-2">
+                <div class="col-6">
+                    <div class="text-muted small">CIUDADANO/A</div>
+                    <div class="fw-bold">{{ votante.nombre_completo }}</div>
+                </div>
+                <div class="col-6">
+                    <div class="text-muted small">CÉDULA</div>
+                    <div class="fw-bold">{{ votante.cedula }}</div>
+                </div>
+                <div class="col-6">
+                    <div class="text-muted small">MUNICIPIO</div>
+                    <div class="fw-semibold">{{ votante.municipio }}</div>
+                </div>
+                <div class="col-6">
+                    <div class="text-muted small">DEPARTAMENTO</div>
+                    <div class="fw-semibold">{{ votante.departamento }}</div>
+                </div>
+                <div class="col-12">
+                    <div class="text-muted small">PUESTO DE VOTACIÓN</div>
+                    <div class="fw-semibold">{{ votante.puesto.nombre }}</div>
+                    <div class="text-muted small">{{ votante.puesto.direccion }}</div>
+                </div>
+                <div class="col-6">
+                    <div class="text-muted small">MESA</div>
+                    <div class="fs-3 fw-bold text-primary">{{ votante.mesa.numero }}</div>
+                </div>
+            </div>
+        </div>
+        <button onclick="window.print()" class="btn btn-outline-secondary mt-3">
+            <i class="bi bi-printer me-1"></i>Imprimir comprobante
+        </button>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

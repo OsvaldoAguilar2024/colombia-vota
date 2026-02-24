@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Colombia Vota{% endblock %}</title>
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --col-amarillo: #FCD116;
+            --col-azul: #003893;
+            --col-rojo: #CE1126;
+        }
+
+        body {
+            background-color: #f4f6f9;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            min-height: 100vh;
+            background: linear-gradient(180deg, var(--col-azul) 0%, #001f5c 100%);
+            width: 260px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-brand {
+            padding: 1.5rem 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+        }
+
+        .sidebar-brand .flag-bar {
+            height: 5px;
+            background: linear-gradient(to right, var(--col-amarillo) 40%, var(--col-azul) 40% 60%, var(--col-rojo) 60%);
+            border-radius: 3px;
+            margin-bottom: 0.75rem;
+        }
+
+        .sidebar .nav-link {
+            color: rgba(255,255,255,0.8);
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            margin: 2px 8px;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+        }
+
+        .sidebar .nav-section {
+            color: rgba(255,255,255,0.4);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 1rem 1.5rem 0.3rem;
+        }
+
+        /* MAIN CONTENT */
+        .main-content {
+            margin-left: 260px;
+            min-height: 100vh;
+            transition: margin-left 0.3s ease;
+        }
+
+        .topbar {
+            background: white;
+            padding: 0.75rem 1.5rem;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 999;
+        }
+
+        .page-body {
+            padding: 1.5rem;
+        }
+
+        /* CARDS */
+        .stat-card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .stat-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        /* TABLE */
+        .table-card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+            overflow: hidden;
+        }
+
+        .table thead th {
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #6c757d;
+        }
+
+        /* FORM CARD */
+        .form-card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+        }
+
+        /* BADGES */
+        .badge-amarillo { background-color: var(--col-amarillo); color: #333; }
+        .badge-azul { background-color: var(--col-azul); }
+        .badge-rojo { background-color: var(--col-rojo); }
+
+        /* MOBILE */
+        .sidebar-toggle {
+            display: none;
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+
+        @media (max-width: 991.98px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.show {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .sidebar-toggle {
+                display: block;
+            }
+
+            .sidebar-overlay.show {
+                display: block;
+            }
+
+            .page-body {
+                padding: 1rem;
+            }
+        }
+
+        /* Alerts */
+        .alert { border-radius: 10px; }
+
+        /* Breadcrumb */
+        .breadcrumb-item + .breadcrumb-item::before { color: #adb5bd; }
+
+        /* Avatar candidato */
+        .candidato-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .candidato-avatar-placeholder {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: #adb5bd;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<!-- Sidebar Overlay (mobile) -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <div class="flag-bar"></div>
+        <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-map text-warning fs-4"></i>
+            <div>
+                <div class="text-white fw-bold">Colombia Vota</div>
+                <div class="text-white-50" style="font-size:0.75rem;">Sistema Electoral</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="py-3">
+        <div class="nav-section">Principal</div>
+        <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+            <i class="bi bi-speedometer2 me-2"></i> Dashboard
+        </a>
+        <a href="{% url 'consulta_publica' %}" class="nav-link">
+            <i class="bi bi-search me-2"></i> Consulta Pública
+        </a>
+
+        <div class="nav-section">Votantes</div>
+        <a href="{% url 'votante_lista' %}" class="nav-link {% if 'votante' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-people me-2"></i> Votantes
+        </a>
+        <a href="{% url 'votante_crear' %}" class="nav-link">
+            <i class="bi bi-person-plus me-2"></i> Registrar Votante
+        </a>
+
+        <div class="nav-section">Elecciones</div>
+        <a href="{% url 'evento_lista' %}" class="nav-link {% if 'evento' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-calendar-event me-2"></i> Eventos Electorales
+        </a>
+        <a href="{% url 'candidato_lista' %}" class="nav-link {% if 'candidato' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-person-badge me-2"></i> Candidatos
+        </a>
+        <a href="{% url 'partido_lista' %}" class="nav-link {% if 'partido' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-flag me-2"></i> Partidos Políticos
+        </a>
+
+        <div class="nav-section">Infraestructura</div>
+        <a href="{% url 'puesto_lista' %}" class="nav-link {% if 'puesto' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-building me-2"></i> Puestos de Votación
+        </a>
+        <a href="{% url 'mesa_lista' %}" class="nav-link {% if 'mesa' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-grid-3x3 me-2"></i> Mesas de Votación
+        </a>
+
+        <div class="nav-section">Encuestador</div>
+        <a href="{% url 'encuestador_inicio' %}" class="nav-link {% if 'encuestador' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-clipboard2-pulse me-2"></i> Encuestar Ciudadano
+        </a>
+        <a href="{% url 'encuestador_estadisticas' %}" class="nav-link {% if request.resolver_match.url_name == 'encuestador_estadisticas' %}active{% endif %}">
+            <i class="bi bi-bar-chart-line me-2"></i> Estadísticas
+        </a>
+
+        <div class="nav-section">Sistema</div>
+        <a href="/admin/" class="nav-link" target="_blank">
+            <i class="bi bi-gear me-2"></i> Administrador
+        </a>
+        <a href="{% url 'logout' %}" class="nav-link text-danger">
+            <i class="bi bi-box-arrow-right me-2"></i> Cerrar Sesión
+        </a>
+    </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main-content">
+    <!-- Topbar -->
+    <div class="topbar">
+        <div class="d-flex align-items-center gap-3">
+            <button class="btn btn-light sidebar-toggle" onclick="toggleSidebar()">
+                <i class="bi bi-list fs-5"></i>
+            </button>
+            <nav aria-label="breadcrumb" class="d-none d-md-block">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}" class="text-decoration-none">Inicio</a></li>
+                    {% block breadcrumb %}{% endblock %}
+                </ol>
+            </nav>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="d-none d-md-inline text-muted small">{{ request.user.get_full_name|default:request.user.username }}</span>
+            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width:36px;height:36px;font-size:0.85rem;font-weight:600;">
+                {{ request.user.username|first|upper }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="px-3 pt-3">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Page Content -->
+    <div class="page-body">
+        {% block content %}{% endblock %}
+    </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar.classList.toggle('show');
+    overlay.classList.toggle('show');
+}
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

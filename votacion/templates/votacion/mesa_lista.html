@@ -1,0 +1,53 @@
+{% extends 'votacion/base.html' %}
+{% block title %}Mesas de Votación - Colombia Vota{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Mesas de Votación</li>
+{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="fw-bold mb-0"><i class="bi bi-grid-3x3 me-2"></i>Mesas de Votación</h4>
+    <a href="{% url 'mesa_crear' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i><span class="d-none d-sm-inline">Nueva Mesa</span>
+    </a>
+</div>
+<div class="card table-card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Mesa #</th>
+                    <th>Puesto</th>
+                    <th class="d-none d-md-table-cell">Municipio</th>
+                    <th class="d-none d-lg-table-cell">Departamento</th>
+                    <th class="d-none d-md-table-cell">Zona/Salón</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mesa in mesas %}
+                <tr>
+                    <td><span class="badge bg-primary fs-6">{{ mesa.numero }}</span></td>
+                    <td>
+                        <div class="fw-semibold">{{ mesa.puesto.nombre }}</div>
+                        <div class="text-muted small d-md-none">{{ mesa.puesto.municipio }}</div>
+                    </td>
+                    <td class="d-none d-md-table-cell">{{ mesa.puesto.municipio.nombre }}</td>
+                    <td class="d-none d-lg-table-cell">{{ mesa.puesto.municipio.departamento.nombre }}</td>
+                    <td class="d-none d-md-table-cell text-muted">{{ mesa.zona|default:"-" }}</td>
+                    <td>
+                        <div class="d-flex gap-1">
+                            <a href="{% url 'mesa_editar' mesa.pk %}" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i></a>
+                            <a href="{% url 'mesa_eliminar' mesa.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center py-5 text-muted">
+                    <i class="bi bi-grid-3x3 fs-2 d-block mb-2"></i>No hay mesas registradas
+                </td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

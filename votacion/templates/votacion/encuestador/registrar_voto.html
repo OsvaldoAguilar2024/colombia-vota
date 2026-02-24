@@ -1,0 +1,250 @@
+{% extends 'votacion/base.html' %}
+
+{% block title %}Registrar Voto - Encuestador{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'encuestador_inicio' %}" class="text-decoration-none">Encuestador</a></li>
+<li class="breadcrumb-item"><a href="{% url 'encuestador_elegir_evento' votante.pk %}" class="text-decoration-none">Eventos</a></li>
+<li class="breadcrumb-item active">Registrar Voto</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.candidato-card {
+  border: 2px solid #e9ecef;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+  position: relative;
+  overflow: hidden;
+}
+.candidato-card:hover {
+  border-color: #0d6efd;
+  box-shadow: 0 4px 20px rgba(13,110,253,0.15);
+  transform: translateY(-2px);
+}
+.candidato-card.selected {
+  border-color: #0d6efd;
+  background: #f0f5ff;
+  box-shadow: 0 4px 20px rgba(13,110,253,0.2);
+}
+.candidato-card .check-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #0d6efd;
+  color: white;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+}
+.candidato-card.selected .check-badge {
+  display: flex;
+}
+.candidato-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.candidato-avatar-ph {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #e9ecef;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  color: #adb5bd;
+  flex-shrink: 0;
+}
+.numero-lista {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #003893;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+.btn-registrar {
+  position: sticky;
+  bottom: 1rem;
+  z-index: 100;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-9">
+
+    <!-- Votante + Evento info -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body p-3">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <div class="d-flex align-items-center gap-3">
+            <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0"
+                 style="width:44px;height:44px;">{{ votante.nombres|first }}</div>
+            <div>
+              <div class="fw-bold">{{ votante.nombre_completo }}</div>
+              <div class="text-muted small">CC: {{ votante.cedula }}</div>
+            </div>
+          </div>
+          <div class="text-end">
+            <div class="fw-semibold text-primary">{{ evento.nombre }}</div>
+            <span class="badge bg-secondary">{{ evento.get_tipo_display }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% if encuesta_existente %}
+    <div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
+      <i class="bi bi-arrow-repeat fs-5"></i>
+      <div>
+        <strong>Este ciudadano ya fue encuestado.</strong>
+        Actualmente tiene seleccionado a <strong>{{ encuesta_existente.candidato.nombre_completo }}</strong>.
+        Puede cambiar la selección.
+      </div>
+    </div>
+    {% endif %}
+
+    <h5 class="fw-bold mb-3">
+      <i class="bi bi-person-badge text-success me-2"></i>
+      Selecciona el candidato de preferencia:
+    </h5>
+
+    <form method="post" id="formVoto">
+      {% csrf_token %}
+      <input type="hidden" name="candidato_id" id="candidato_id_hidden" value="">
+
+      <!-- Grid de candidatos -->
+      <div class="row g-3 mb-4" id="gridCandidatos">
+        {% for candidato in candidatos %}
+        <div class="col-12 col-sm-6 col-lg-4">
+          <div class="candidato-card p-3 h-100"
+               data-id="{{ candidato.pk }}"
+               onclick="seleccionarCandidato(this, '{{ candidato.pk }}')"
+               {% if encuesta_existente and encuesta_existente.candidato_id == candidato.pk %}
+               id="preselected"
+               {% endif %}>
+
+            <!-- Check mark -->
+            <div class="check-badge"><i class="bi bi-check2"></i></div>
+
+            <div class="d-flex align-items-start gap-3">
+              <!-- Foto o placeholder -->
+              {% if candidato.foto %}
+              <img src="{{ candidato.foto.url }}" class="candidato-avatar flex-shrink-0" alt="{{ candidato.nombre_completo }}">
+              {% else %}
+              <div class="candidato-avatar-ph flex-shrink-0">
+                <i class="bi bi-person"></i>
+              </div>
+              {% endif %}
+
+              <div class="flex-grow-1 min-width-0">
+                <div class="fw-bold text-truncate">{{ candidato.apellidos }}</div>
+                <div class="text-muted small text-truncate">{{ candidato.nombres }}</div>
+
+                {% if candidato.partido %}
+                <span class="badge mt-1" style="background-color:{{ candidato.partido.color }}; font-size:0.7rem;">
+                  {{ candidato.partido.sigla }}
+                </span>
+                {% endif %}
+
+                {% if candidato.cargo_aspirado %}
+                <div class="text-muted mt-1" style="font-size:0.75rem;">{{ candidato.cargo_aspirado }}</div>
+                {% endif %}
+              </div>
+
+              {% if candidato.numero_lista %}
+              <div class="numero-lista flex-shrink-0">{{ candidato.numero_lista }}</div>
+              {% endif %}
+            </div>
+
+          </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+          <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            No hay candidatos activos para este evento.
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Observación opcional -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-3">
+          <label class="form-label fw-semibold">
+            <i class="bi bi-chat-dots text-muted me-1"></i>Observación (opcional)
+          </label>
+          <textarea name="observacion" class="form-control" rows="2"
+                    placeholder="Nota del encuestador...">{% if encuesta_existente %}{{ encuesta_existente.observacion }}{% endif %}</textarea>
+        </div>
+      </div>
+
+      <!-- Botón de envío -->
+      <div class="btn-registrar">
+        <button type="submit" id="btnRegistrar" class="btn btn-primary btn-lg w-100 shadow" disabled>
+          <i class="bi bi-check-circle me-2"></i>
+          <span id="btnTexto">Selecciona un candidato para continuar</span>
+        </button>
+      </div>
+    </form>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let candidatoSeleccionado = null;
+
+function seleccionarCandidato(el, id) {
+  // Deseleccionar todos
+  document.querySelectorAll('.candidato-card').forEach(c => c.classList.remove('selected'));
+
+  // Seleccionar el clickeado
+  el.classList.add('selected');
+  candidatoSeleccionado = id;
+  document.getElementById('candidato_id_hidden').value = id;
+
+  // Habilitar botón
+  const btn = document.getElementById('btnRegistrar');
+  const nombre = el.querySelector('.fw-bold').textContent.trim();
+  btn.disabled = false;
+  document.getElementById('btnTexto').textContent = `Registrar voto por ${nombre}`;
+}
+
+// Pre-seleccionar si hay encuesta existente
+document.addEventListener('DOMContentLoaded', function() {
+  const preselected = document.getElementById('preselected');
+  if (preselected) {
+    const id = preselected.dataset.id;
+    seleccionarCandidato(preselected, id);
+  }
+});
+
+// Confirmar antes de enviar
+document.getElementById('formVoto').addEventListener('submit', function(e) {
+  if (!candidatoSeleccionado) {
+    e.preventDefault();
+    alert('Por favor selecciona un candidato primero.');
+  }
+});
+</script>
+{% endblock %}

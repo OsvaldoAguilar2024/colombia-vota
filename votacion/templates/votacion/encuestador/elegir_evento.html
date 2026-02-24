@@ -1,0 +1,139 @@
+{% extends 'votacion/base.html' %}
+
+{% block title %}Elegir Evento - Encuestador{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'encuestador_inicio' %}" class="text-decoration-none">Encuestador</a></li>
+<li class="breadcrumb-item active">Seleccionar Evento</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.hover-lift { transition: transform 0.15s, box-shadow 0.15s; }
+.hover-lift:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.12) !important; }
+.evento-borde-presidencia  { background: #003893; }
+.evento-borde-congreso     { background: #6f42c1; }
+.evento-borde-alcaldia     { background: #CE1126; }
+.evento-borde-gobernacion  { background: #fd7e14; }
+.evento-borde-otro         { background: #20c997; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-9 col-lg-7">
+
+    <!-- Tarjeta del votante -->
+    <div class="alert alert-success d-flex align-items-center gap-3 mb-4 shadow-sm">
+      <div class="rounded-circle bg-success d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0"
+           style="width:48px;height:48px;font-size:1.3rem;">
+        {{ votante.nombres|first|upper }}
+      </div>
+      <div>
+        <div class="fw-bold fs-5">{{ votante.nombre_completo }}</div>
+        <div class="small opacity-75">
+          <i class="bi bi-credit-card me-1"></i>CC: {{ votante.cedula }}
+          {% if votante.municipio %}
+          &nbsp;&nbsp;<i class="bi bi-geo-alt me-1"></i>{{ votante.municipio.nombre }}, {{ votante.departamento.nombre }}
+          {% endif %}
+        </div>
+        {% if votante.puesto and votante.mesa %}
+        <div class="small mt-1 opacity-75">
+          <i class="bi bi-building me-1"></i>{{ votante.puesto.nombre }}
+          &nbsp;|&nbsp;<span class="badge bg-white text-success">Mesa {{ votante.mesa.numero }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <h5 class="fw-bold mb-3">
+      <i class="bi bi-calendar-event text-warning me-2"></i>¿Para cuál evento registrar intención de voto?
+    </h5>
+
+    {% if eventos %}
+    <div class="row g-3">
+      {% for evento in eventos %}
+      <div class="col-12">
+        <div class="card border-0 shadow-sm hover-lift">
+          <div class="card-body p-0">
+            <div class="d-flex align-items-stretch">
+
+              <!-- Barra de color lateral -->
+              <div class="rounded-start d-flex align-items-center justify-content-center px-3 flex-shrink-0"
+                   style="min-width:60px;
+                   background:{% if evento.tipo == 'PRESIDENCIA' %}#003893{% elif 'CONGRESO' in evento.tipo %}#6f42c1{% elif evento.tipo == 'ALCALDIA' %}#CE1126{% elif evento.tipo == 'GOBERNACION' %}#fd7e14{% else %}#20c997{% endif %};">
+                <i class="bi bi-{% if evento.tipo == 'PRESIDENCIA' %}flag-fill{% elif 'CONGRESO' in evento.tipo %}building-fill{% elif evento.tipo == 'ALCALDIA' %}geo-fill{% else %}people-fill{% endif %} text-white fs-4"></i>
+              </div>
+
+              <!-- Contenido del evento -->
+              <div class="p-3 flex-grow-1">
+                <div class="d-flex align-items-start justify-content-between gap-2 flex-wrap">
+
+                  <div class="flex-grow-1">
+                    <div class="fw-bold fs-6">{{ evento.nombre }}</div>
+                    <div class="mt-1">
+                      <span class="badge bg-secondary">{{ evento.get_tipo_display }}</span>
+                      <span class="text-muted small ms-2">
+                        <i class="bi bi-calendar3 me-1"></i>{{ evento.fecha }}
+                      </span>
+                      <span class="text-muted small ms-2">
+                        <i class="bi bi-person-badge me-1"></i>{{ evento.num_candidatos }} candidato{{ evento.num_candidatos|pluralize }}
+                      </span>
+                    </div>
+
+                    {% if evento.ya_encuestado %}
+                    <div class="mt-2">
+                      <span class="badge bg-warning text-dark">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Ya encuestado: {{ evento.encuesta_previa.candidato.nombre_completo }}
+                      </span>
+                      <div class="text-muted mt-1" style="font-size:0.75rem;">
+                        <i class="bi bi-info-circle me-1"></i>Puede actualizar la selección
+                      </div>
+                    </div>
+                    {% endif %}
+                  </div>
+
+                  <!-- Botón acción -->
+                  <a href="{% url 'encuestador_registrar_voto' votante.pk evento.pk %}"
+                     class="btn {% if evento.ya_encuestado %}btn-warning{% else %}btn-primary{% endif %} flex-shrink-0 align-self-center">
+                    {% if evento.ya_encuestado %}
+                    <i class="bi bi-arrow-repeat me-1"></i>Actualizar
+                    {% else %}
+                    <i class="bi bi-check2-square me-1"></i>Encuestar
+                    {% endif %}
+                  </a>
+
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="card border-0 shadow-sm text-center py-5">
+      <i class="bi bi-calendar-x text-muted fs-2 mb-3 d-block"></i>
+      <p class="text-muted mb-3">No hay eventos electorales activos con candidatos registrados.</p>
+      <div class="d-flex gap-2 justify-content-center">
+        <a href="{% url 'encuestador_inicio' %}" class="btn btn-outline-secondary">
+          <i class="bi bi-arrow-left me-1"></i>Volver
+        </a>
+        <a href="{% url 'evento_crear' %}" class="btn btn-warning text-dark">
+          <i class="bi bi-calendar-plus me-1"></i>Crear Evento
+        </a>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="mt-4">
+      <a href="{% url 'encuestador_inicio' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Buscar otro ciudadano
+      </a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta tu Puesto de Votación - Colombia Vota</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root { --col-amarillo: #FCD116; --col-azul: #003893; --col-rojo: #CE1126; }
+        body { background: linear-gradient(135deg, #003893 0%, #001f5c 100%); min-height: 100vh; }
+        .flag-bar { height: 8px; background: linear-gradient(to right, var(--col-amarillo) 40%, var(--col-azul) 40% 60%, var(--col-rojo) 60%); }
+        .result-card { border: none; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+        .mesa-number { font-size: 4rem; font-weight: 800; color: var(--col-azul); line-height: 1; }
+        @media print { body { background: white; } .no-print { display: none !important; } }
+    </style>
+</head>
+<body class="py-4 py-md-5">
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+
+            <!-- Header -->
+            <div class="text-center mb-4 no-print">
+                <i class="bi bi-map text-warning fs-1"></i>
+                <h2 class="text-white fw-bold mt-2">Colombia Vota</h2>
+                <p class="text-white-50">Consulta tu Puesto y Mesa de Votación</p>
+            </div>
+
+            <!-- Search Form -->
+            <div class="card result-card mb-4 no-print">
+                <div class="flag-bar"></div>
+                <div class="card-body p-4">
+                    <h5 class="fw-bold mb-4 text-center">
+                        <i class="bi bi-search text-primary me-2"></i>Ingresa tu Cédula
+                    </h5>
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="input-group input-group-lg mb-3">
+                            <span class="input-group-text"><i class="bi bi-credit-card"></i></span>
+                            <input type="text" name="cedula" class="form-control form-control-lg"
+                                   placeholder="Número de cédula" pattern="[0-9]+" inputmode="numeric"
+                                   value="{{ request.POST.cedula|default:'' }}" required autofocus>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 btn-lg">
+                            <i class="bi bi-search me-2"></i>Consultar
+                        </button>
+                    </form>
+
+                    {% if error %}
+                    <div class="alert alert-warning mt-3 mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>{{ error }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Result -->
+            {% if resultado %}
+            <div class="card result-card">
+                <div class="flag-bar"></div>
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-check-circle-fill text-success fs-2"></i>
+                        <h5 class="fw-bold mt-2 text-success">¡Registro Encontrado!</h5>
+                    </div>
+
+                    <div class="border rounded-3 p-4 mb-4" style="background: linear-gradient(135deg, #f8f9fa, #e9f5ff);">
+                        <h6 class="text-primary fw-bold text-center mb-4">COMPROBANTE DE INSCRIPCIÓN ELECTORAL</h6>
+
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <div class="text-muted small text-uppercase fw-semibold">Ciudadano/a</div>
+                                <div class="fw-bold fs-5">{{ resultado.nombre_completo }}</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="text-muted small text-uppercase fw-semibold">Cédula</div>
+                                <div class="fw-semibold"><code>{{ resultado.cedula }}</code></div>
+                            </div>
+                            <div class="col-6">
+                                <div class="text-muted small text-uppercase fw-semibold">Municipio</div>
+                                <div class="fw-semibold">{{ resultado.municipio }}</div>
+                            </div>
+                            <div class="col-12">
+                                <div class="text-muted small text-uppercase fw-semibold">Departamento</div>
+                                <div class="fw-semibold">{{ resultado.departamento }}</div>
+                            </div>
+
+                            {% if resultado.puesto %}
+                            <div class="col-12">
+                                <div class="text-muted small text-uppercase fw-semibold">Puesto de Votación</div>
+                                <div class="fw-bold fs-6">{{ resultado.puesto.nombre }}</div>
+                                <div class="text-muted small"><i class="bi bi-geo-alt me-1"></i>{{ resultado.puesto.direccion }}</div>
+                            </div>
+                            {% endif %}
+
+                            {% if resultado.mesa %}
+                            <div class="col-12 text-center">
+                                <div class="text-muted small text-uppercase fw-semibold">Mesa de Votación</div>
+                                <div class="mesa-number">{{ resultado.mesa.numero }}</div>
+                                {% if resultado.mesa.zona %}
+                                <div class="text-muted small">{{ resultado.mesa.zona }}</div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 no-print">
+                        <button onclick="window.print()" class="btn btn-outline-primary flex-grow-1">
+                            <i class="bi bi-printer me-2"></i>Imprimir
+                        </button>
+                        <a href="{% url 'consulta_publica' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Nueva consulta
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Back link -->
+            <div class="text-center mt-4 no-print">
+                <a href="{% url 'login' %}" class="text-white-50 text-decoration-none small">
+                    <i class="bi bi-lock me-1"></i>Acceso para administradores
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

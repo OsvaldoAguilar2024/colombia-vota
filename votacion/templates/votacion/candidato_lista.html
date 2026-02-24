@@ -1,0 +1,137 @@
+{% extends 'votacion/base.html' %}
+
+{% block title %}Candidatos - Colombia Vota{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Candidatos</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="fw-bold mb-0"><i class="bi bi-person-badge text-success me-2"></i>Candidatos</h4>
+    <a href="{% url 'candidato_crear' %}" class="btn btn-success">
+        <i class="bi bi-person-plus me-1"></i><span class="d-none d-sm-inline">Nuevo Candidato</span>
+    </a>
+</div>
+
+<!-- Filtro por evento -->
+<div class="card form-card mb-4">
+    <div class="card-body py-3">
+        <form method="get" class="d-flex align-items-center gap-3 flex-wrap">
+            <label class="fw-semibold text-muted mb-0">Filtrar por evento:</label>
+            <select name="evento" class="form-select" style="max-width:350px;" onchange="this.form.submit()">
+                <option value="">Todos los eventos</option>
+                {% for ev in eventos %}
+                <option value="{{ ev.pk }}" {% if evento_seleccionado == ev.pk|stringformat:"s" %}selected{% endif %}>
+                    {{ ev.nombre }} ({{ ev.fecha }})
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+</div>
+
+<div class="card table-card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Candidato</th>
+                    <th class="d-none d-md-table-cell">Evento</th>
+                    <th class="d-none d-md-table-cell">Partido</th>
+                    <th class="d-none d-lg-table-cell">Cargo</th>
+                    <th class="d-none d-lg-table-cell">Lista #</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for candidato in page_obj %}
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            {% if candidato.foto %}
+                            <img src="{{ candidato.foto.url }}" class="candidato-avatar" alt="{{ candidato.nombre_completo }}">
+                            {% else %}
+                            <div class="candidato-avatar-placeholder"><i class="bi bi-person"></i></div>
+                            {% endif %}
+                            <div>
+                                <div class="fw-semibold">{{ candidato.nombre_completo }}</div>
+                                <div class="text-muted small d-md-none">{{ candidato.evento.nombre|truncatechars:25 }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="d-none d-md-table-cell">
+                        <span class="badge bg-primary">{{ candidato.evento.get_tipo_display|truncatechars:20 }}</span>
+                        <div class="small text-muted">{{ candidato.evento.nombre|truncatechars:30 }}</div>
+                    </td>
+                    <td class="d-none d-md-table-cell">
+                        {% if candidato.partido %}
+                        <span class="badge" style="background-color:{{ candidato.partido.color }}">{{ candidato.partido.sigla }}</span>
+                        {% else %}-{% endif %}
+                    </td>
+                    <td class="d-none d-lg-table-cell">{{ candidato.cargo_aspirado|default:"-" }}</td>
+                    <td class="d-none d-lg-table-cell">
+                        {% if candidato.numero_lista %}
+                        <span class="badge bg-secondary">{{ candidato.numero_lista }}</span>
+                        {% else %}-{% endif %}
+                    </td>
+                    <td>
+                        {% if candidato.activo %}
+                        <span class="badge bg-success">Activo</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex gap-1">
+                            <a href="{% url 'candidato_detalle' candidato.pk %}" class="btn btn-sm btn-outline-primary" title="Ver">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{% url 'candidato_editar' candidato.pk %}" class="btn btn-sm btn-outline-warning" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a href="{% url 'candidato_eliminar' candidato.pk %}" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-5 text-muted">
+                        <i class="bi bi-person-x fs-2 d-block mb-2"></i>
+                        No hay candidatos registrados
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="card-footer bg-white">
+        <nav>
+            <ul class="pagination justify-content-center mb-0">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if evento_seleccionado %}&evento={{ evento_seleccionado }}{% endif %}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+                {% endif %}
+                <li class="page-item disabled">
+                    <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                </li>
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if evento_seleccionado %}&evento={{ evento_seleccionado }}{% endif %}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

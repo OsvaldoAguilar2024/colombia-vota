@@ -1,0 +1,111 @@
+{% extends 'votacion/base.html' %}
+
+{% block title %}Encuestador - Colombia Vota{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Encuestador</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+
+    <!-- Header -->
+    <div class="text-center mb-4">
+      <div class="rounded-circle bg-primary bg-opacity-10 d-inline-flex align-items-center justify-content-center mb-3"
+           style="width:80px;height:80px;">
+        <i class="bi bi-clipboard2-pulse text-primary" style="font-size:2.2rem;"></i>
+      </div>
+      <h4 class="fw-bold">Módulo Encuestador</h4>
+      <p class="text-muted">Ingresa la cédula del ciudadano para registrar su intención de voto</p>
+    </div>
+
+    <!-- Estadísticas rápidas del encuestador -->
+    <div class="row g-3 mb-4">
+      <div class="col-6">
+        <div class="card border-0 shadow-sm text-center p-3">
+          <div class="fs-2 fw-bold text-primary">{{ mis_encuestas_hoy }}</div>
+          <div class="text-muted small">Encuestas tuyas hoy</div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="card border-0 shadow-sm text-center p-3">
+          <div class="fs-2 fw-bold text-success">{{ total_encuestas }}</div>
+          <div class="text-muted small">Total encuestas sistema</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Formulario de búsqueda -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <h5 class="fw-bold mb-4">
+          <i class="bi bi-search text-primary me-2"></i>Buscar Ciudadano
+        </h5>
+
+        {% if error %}
+        <div class="alert alert-warning d-flex align-items-center gap-2">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+          <span>{{ error }}</span>
+        </div>
+        {% endif %}
+
+        <form method="post" id="formBuscar">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Número de Cédula</label>
+            <div class="input-group input-group-lg">
+              <span class="input-group-text bg-white">
+                <i class="bi bi-credit-card text-primary"></i>
+              </span>
+              <input
+                type="text"
+                name="cedula"
+                id="inputCedula"
+                class="form-control form-control-lg"
+                placeholder="Ej: 1234567890"
+                value="{{ cedula }}"
+                inputmode="numeric"
+                pattern="[0-9]+"
+                autofocus
+                required
+              >
+            </div>
+            <div class="form-text">Si el ciudadano no está registrado, lo llevará al formulario de registro.</div>
+          </div>
+
+          <div class="d-grid">
+            <button type="submit" class="btn btn-primary btn-lg">
+              <i class="bi bi-arrow-right-circle me-2"></i>Continuar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Acceso rápido a estadísticas -->
+    <div class="card border-0 shadow-sm mt-3">
+      <div class="card-body p-3">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="fw-semibold">Ver resultados de la encuesta</div>
+            <div class="text-muted small">Estadísticas y gráficas por evento</div>
+          </div>
+          <a href="{% url 'encuestador_estadisticas' %}" class="btn btn-outline-success">
+            <i class="bi bi-bar-chart-line me-1"></i>Ver
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-focus y solo permitir números
+document.getElementById('inputCedula').addEventListener('keypress', function(e) {
+  if (!/[0-9]/.test(e.key)) e.preventDefault();
+});
+</script>
+{% endblock %}

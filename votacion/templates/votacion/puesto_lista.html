@@ -1,0 +1,55 @@
+{% extends 'votacion/base.html' %}
+{% block title %}Puestos de Votación - Colombia Vota{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Puestos de Votación</li>
+{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="fw-bold mb-0"><i class="bi bi-building text-danger me-2"></i>Puestos de Votación</h4>
+    <a href="{% url 'puesto_crear' %}" class="btn btn-danger">
+        <i class="bi bi-plus-circle me-1"></i><span class="d-none d-sm-inline">Nuevo Puesto</span>
+    </a>
+</div>
+<div class="card table-card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th class="d-none d-md-table-cell">Municipio</th>
+                    <th class="d-none d-md-table-cell">Departamento</th>
+                    <th class="d-none d-lg-table-cell">Dirección</th>
+                    <th class="d-none d-lg-table-cell">Mesas</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for puesto in puestos %}
+                <tr>
+                    <td>
+                        <div class="fw-semibold">{{ puesto.nombre }}</div>
+                        <div class="text-muted small d-md-none">{{ puesto.municipio }}</div>
+                    </td>
+                    <td class="d-none d-md-table-cell">{{ puesto.municipio.nombre }}</td>
+                    <td class="d-none d-md-table-cell">{{ puesto.municipio.departamento.nombre }}</td>
+                    <td class="d-none d-lg-table-cell text-muted small">{{ puesto.direccion }}</td>
+                    <td class="d-none d-lg-table-cell">
+                        <span class="badge bg-secondary">{{ puesto.num_mesas }} mesa{{ puesto.num_mesas|pluralize }}</span>
+                    </td>
+                    <td>
+                        <div class="d-flex gap-1">
+                            <a href="{% url 'puesto_editar' puesto.pk %}" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i></a>
+                            <a href="{% url 'puesto_eliminar' puesto.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center py-5 text-muted">
+                    <i class="bi bi-building fs-2 d-block mb-2"></i>No hay puestos registrados
+                </td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

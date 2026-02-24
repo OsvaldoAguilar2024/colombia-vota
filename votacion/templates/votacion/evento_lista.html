@@ -1,0 +1,77 @@
+{% extends 'votacion/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Eventos Electorales - Colombia Vota{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Eventos Electorales</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="fw-bold mb-0"><i class="bi bi-calendar-event text-warning me-2"></i>Eventos Electorales</h4>
+    <a href="{% url 'evento_crear' %}" class="btn btn-warning text-dark">
+        <i class="bi bi-calendar-plus me-1"></i><span class="d-none d-sm-inline">Nuevo Evento</span>
+    </a>
+</div>
+
+<div class="card table-card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Tipo</th>
+                    <th class="d-none d-md-table-cell">Fecha</th>
+                    <th class="d-none d-lg-table-cell">Candidatos</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for evento in eventos %}
+                <tr>
+                    <td>
+                        <div class="fw-semibold">{{ evento.nombre }}</div>
+                        <div class="text-muted small d-md-none">{{ evento.fecha }}</div>
+                    </td>
+                    <td><span class="badge bg-primary">{{ evento.get_tipo_display }}</span></td>
+                    <td class="d-none d-md-table-cell">{{ evento.fecha }}</td>
+                    <td class="d-none d-lg-table-cell">
+                        <a href="{% url 'candidato_lista' %}?evento={{ evento.pk }}" class="badge bg-success text-decoration-none">
+                            {{ evento.num_candidatos }} candidato{{ evento.num_candidatos|pluralize }}
+                        </a>
+                    </td>
+                    <td>
+                        {% if evento.activo %}
+                        <span class="badge bg-success">Activo</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex gap-1">
+                            <a href="{% url 'candidato_lista' %}?evento={{ evento.pk }}" class="btn btn-sm btn-outline-success" title="Ver candidatos">
+                                <i class="bi bi-people"></i>
+                            </a>
+                            <a href="{% url 'evento_editar' evento.pk %}" class="btn btn-sm btn-outline-warning" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a href="{% url 'evento_eliminar' evento.pk %}" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-5 text-muted">
+                        <i class="bi bi-calendar-x fs-2 d-block mb-2"></i>
+                        No hay eventos registrados
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
