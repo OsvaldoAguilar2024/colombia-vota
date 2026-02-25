@@ -10,60 +10,27 @@ class VotanteForm(forms.ModelForm):
     class Meta:
         model = Votante
         fields = ['cedula', 'nombres', 'apellidos', 'email', 'telefono',
-                  'fecha_nacimiento', 'departamento', 'municipio', 'puesto', 'mesa',
+                  'fecha_nacimiento', 'departamento',
                   'direccion', 'barrio', 'latitud', 'longitud']
         widgets = {
             'fecha_nacimiento': forms.DateInput(attrs={'type': 'date'}),
-            'departamento': forms.Select(attrs={'id': 'id_departamento', 'onchange': 'cargarMunicipios(this.value)'}),
-            'municipio': forms.Select(attrs={'id': 'id_municipio', 'onchange': 'cargarPuestos(this.value)'}),
-            'puesto': forms.Select(attrs={'id': 'id_puesto', 'onchange': 'cargarMesas(this.value)'}),
-            'mesa': forms.Select(attrs={'id': 'id_mesa'}),
+            'departamento': forms.Select(attrs={'id': 'id_departamento'}),
             'latitud':  forms.HiddenInput(attrs={'id': 'id_latitud'}),
             'longitud': forms.HiddenInput(attrs={'id': 'id_longitud'}),
         }
 
+    # Campos separados para municipio/puesto/mesa (manejados por JS en el template)
+    municipio = forms.IntegerField(required=False, widget=forms.HiddenInput(attrs={'id': 'val_municipio'}))
+    puesto    = forms.IntegerField(required=False, widget=forms.HiddenInput(attrs={'id': 'val_puesto'}))
+    mesa      = forms.IntegerField(required=False, widget=forms.HiddenInput(attrs={'id': 'val_mesa'}))
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        # Al CREAR (GET sin datos): selects vacíos, el AJAX los llena
-        # Al GUARDAR (POST): se llenan con el valor enviado para pasar validación
-        # Al EDITAR: se llenan con los datos del objeto existente
-
-        # ── Municipio ──────────────────────────────────────────────
-        if 'municipio' in self.data and self.data.get('municipio'):
-            try:
-                mun_id = int(self.data['municipio'])
-                self.fields['municipio'].queryset = Municipio.objects.filter(pk=mun_id)
-            except (ValueError, TypeError):
-                self.fields['municipio'].queryset = Municipio.objects.none()
-        elif self.instance.pk and self.instance.municipio:
-            self.fields['municipio'].queryset = Municipio.objects.filter(pk=self.instance.municipio.pk)
-        else:
-            self.fields['municipio'].queryset = Municipio.objects.none()
-
-        # ── Puesto ─────────────────────────────────────────────────
-        if 'puesto' in self.data and self.data.get('puesto'):
-            try:
-                puesto_id = int(self.data['puesto'])
-                self.fields['puesto'].queryset = PuestoVotacion.objects.filter(pk=puesto_id)
-            except (ValueError, TypeError):
-                self.fields['puesto'].queryset = PuestoVotacion.objects.none()
-        elif self.instance.pk and self.instance.puesto:
-            self.fields['puesto'].queryset = PuestoVotacion.objects.filter(pk=self.instance.puesto.pk)
-        else:
-            self.fields['puesto'].queryset = PuestoVotacion.objects.none()
-
-        # ── Mesa ───────────────────────────────────────────────────
-        if 'mesa' in self.data and self.data.get('mesa'):
-            try:
-                mesa_id = int(self.data['mesa'])
-                self.fields['mesa'].queryset = MesaVotacion.objects.filter(pk=mesa_id)
-            except (ValueError, TypeError):
-                self.fields['mesa'].queryset = MesaVotacion.objects.none()
-        elif self.instance.pk and self.instance.mesa:
-            self.fields['mesa'].queryset = MesaVotacion.objects.filter(pk=self.instance.mesa.pk)
-        else:
-            self.fields['mesa'].queryset = MesaVotacion.objects.none()
+        # Pre-poblar valores ocultos al editar
+        if self.instance.pk:
+            self.initial['municipio'] = self.instance.municipio_id
+            self.initial['puesto']    = self.instance.puesto_id
+            self.initial['mesa']      = self.instance.mesa_id
 
         self.helper = FormHelper()
         self.helper.layout = Layout(
@@ -78,16 +45,16 @@ class VotanteForm(forms.ModelForm):
                 Column('telefono', css_class='col-md-4 mb-3'),
                 Column('fecha_nacimiento', css_class='col-md-4 mb-3'),
             ),
-            HTML('<hr><h5 class="text-primary mb-3"><i class="bi bi-geo-alt"></i> Lugar de Votación</h5>'),
-            Row(
-                Column('departamento', css_class='col-md-6 mb-3'),
-                Column('municipio', css_class='col-md-6 mb-3'),
-            ),
-            Row(
-                Column('puesto', css_class='col-md-6 mb-3'),
-                Column('mesa', css_class='col-md-6 mb-3'),
-            ),
-            HTML('<hr><h5 class="text-success mb-3"><i class="bi bi-pin-map"></i> Dirección de Residencia</h5>'),
+            # Lugar de votación se renderiza manualmente en el template (ver bloque_lugar_votacion)
+            HTML('''
+            <hr>
+            <h5 class="text-primary mb-3"><i class="bi bi-geo-alt"></i> Lugar de Votación</h5>
+            <div id="bloque_lugar_votacion"></div>
+            '''),
+            Field('municipio'),
+            Field('puesto'),
+            Field('mesa'),
+            HTML('''<hr><h5 class="text-success mb-3"><i class="bi bi-pin-map"></i> Dirección de Residencia</h5>'''),
             Row(
                 Column('direccion', css_class='col-md-8 mb-3'),
                 Column('barrio', css_class='col-md-4 mb-3'),
@@ -119,6 +86,19 @@ class VotanteForm(forms.ModelForm):
                 css_class='d-flex gap-2'
             )
         )
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        # Asignar municipio/puesto/mesa desde los campos hidden
+        mun_id    = self.cleaned_data.get('municipio')
+        puesto_id = self.cleaned_data.get('puesto')
+        mesa_id   = self.cleaned_data.get('mesa')
+        instance.municipio_id = mun_id    if mun_id    else None
+        instance.puesto_id    = puesto_id if puesto_id else None
+        instance.mesa_id      = mesa_id   if mesa_id   else None
+        if commit:
+            instance.save()
+        return instance
 
 
 class CandidatoForm(forms.ModelForm):

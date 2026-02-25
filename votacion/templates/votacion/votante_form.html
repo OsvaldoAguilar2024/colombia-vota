@@ -11,9 +11,8 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <style>
 #mapa-votante { z-index: 1; }
-/* ocultar lat/lng del usuario — solo para uso interno */
-#div_id_latitud, #div_id_longitud { display: none !important; }
-.leaflet-popup-content { font-size: .9rem; }
+#div_id_latitud, #div_id_longitud,
+#div_id_municipio, #div_id_puesto, #div_id_mesa { display: none !important; }
 </style>
 {% endblock %}
 
@@ -36,7 +35,47 @@
         <form method="post" id="votanteForm" enctype="multipart/form-data">
           {% csrf_token %}
           {% if from_encuestador %}<input type="hidden" name="from_encuestador" value="1">{% endif %}
+
           {% crispy form %}
+
+          {# ── Lugar de Votación — renderizado 100% manual para evitar duplicados ── #}
+          <div id="bloque_lugar_votacion" style="margin-top:-10px;">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Departamento</label>
+                <select id="sel_departamento" class="form-select">
+                  <option value="">---------</option>
+                  {% for dep in departamentos %}
+                  <option value="{{ dep.id }}"
+                    {% if form.instance.departamento_id == dep.id %}selected{% endif %}>
+                    {{ dep.nombre }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Ciudad / Municipio</label>
+                <select id="sel_municipio" class="form-select">
+                  <option value="">— Selecciona departamento primero —</option>
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Puesto de Votación</label>
+                <select id="sel_puesto" class="form-select">
+                  <option value="">— Selecciona municipio primero —</option>
+                </select>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Mesa</label>
+                <select id="sel_mesa" class="form-select">
+                  <option value="">— Selecciona puesto primero —</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
         </form>
       </div>
     </div>
@@ -47,105 +86,143 @@
 {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
-// ── Cascada departamento → municipio → puesto → mesa ──────────────
-function cargarMunicipios(depId) {
-  const sel = document.getElementById('id_municipio');
-  sel.innerHTML = '<option value="">---------</option>';
-  document.getElementById('id_puesto').innerHTML = '<option value="">---------</option>';
-  document.getElementById('id_mesa').innerHTML   = '<option value="">---------</option>';
+// ════════════════════════════════════════════════════════
+// CASCADA: departamento → municipio → puesto → mesa
+// Los selects son completamente manuales (sin Django form)
+// Los valores se envían como campos hidden al servidor
+// ════════════════════════════════════════════════════════
+
+// Valores actuales (para edición)
+const INIT = {
+  dep:    "{{ form.instance.departamento_id|default:'' }}",
+  mun:    "{{ form.instance.municipio_id|default:'' }}",
+  puesto: "{{ form.instance.puesto_id|default:'' }}",
+  mesa:   "{{ form.instance.mesa_id|default:'' }}",
+};
+
+const selDep    = document.getElementById('sel_departamento');
+const selMun    = document.getElementById('sel_municipio');
+const selPuesto = document.getElementById('sel_puesto');
+const selMesa   = document.getElementById('sel_mesa');
+
+// Campos hidden que se envían al servidor
+const hidMun    = document.getElementById('val_municipio');
+const hidPuesto = document.getElementById('val_puesto');
+const hidMesa   = document.getElementById('val_mesa');
+
+function resetSelect(sel, placeholder) {
+  sel.innerHTML = `<option value="">${placeholder}</option>`;
+}
+
+function cargarMunicipios(depId, seleccionarId) {
+  resetSelect(selMun,    '— Selecciona municipio —');
+  resetSelect(selPuesto, '— Selecciona municipio primero —');
+  resetSelect(selMesa,   '— Selecciona puesto primero —');
+  hidMun.value = ''; hidPuesto.value = ''; hidMesa.value = '';
   if (!depId) return;
+
   fetch('/api/municipios/?departamento_id=' + depId)
-    .then(r => r.json()).then(data => {
-      data.forEach(m => { sel.innerHTML += `<option value="${m.id}">${m.nombre}</option>`; });
-    });
-}
-function cargarPuestos(munId) {
-  const sel = document.getElementById('id_puesto');
-  sel.innerHTML = '<option value="">---------</option>';
-  document.getElementById('id_mesa').innerHTML = '<option value="">---------</option>';
-  if (!munId) return;
-  fetch('/api/puestos/?municipio_id=' + munId)
-    .then(r => r.json()).then(data => {
-      data.forEach(p => { sel.innerHTML += `<option value="${p.id}">${p.nombre}</option>`; });
-    });
-}
-function cargarMesas(puestoId) {
-  const sel = document.getElementById('id_mesa');
-  sel.innerHTML = '<option value="">---------</option>';
-  if (!puestoId) return;
-  fetch('/api/mesas/?puesto_id=' + puestoId)
-    .then(r => r.json()).then(data => {
-      data.forEach(m => { sel.innerHTML += `<option value="${m.id}">Mesa ${m.numero}</option>`; });
-    });
-}
-
-// ── Asegurar eventos aunque el widget no tenga onchange ───────────
-document.addEventListener('DOMContentLoaded', function() {
-  const selDep = document.getElementById('id_departamento');
-  const selMun = document.getElementById('id_municipio');
-  const selPue = document.getElementById('id_puesto');
-
-  if (selDep) selDep.addEventListener('change', e => cargarMunicipios(e.target.value));
-  if (selMun) selMun.addEventListener('change', e => cargarPuestos(e.target.value));
-  if (selPue) selPue.addEventListener('change', e => cargarMesas(e.target.value));
-
-  // Al EDITAR: pre-cargar los selects dependientes con los valores guardados
-  {% if form.instance.pk %}
-  const munActual   = "{{ form.instance.municipio_id|default:'' }}";
-  const puestoActual = "{{ form.instance.puesto_id|default:'' }}";
-  const mesaActual   = "{{ form.instance.mesa_id|default:'' }}";
-
-  if (selDep && selDep.value) {
-    fetch('/api/municipios/?departamento_id=' + selDep.value)
-      .then(r => r.json()).then(data => {
-        selMun.innerHTML = '<option value="">---------</option>';
-        data.forEach(m => {
-          const sel = m.id == munActual ? ' selected' : '';
-          selMun.innerHTML += `<option value="${m.id}"${sel}>${m.nombre}</option>`;
-        });
-        // Luego cargar puestos si hay municipio
-        if (munActual) {
-          fetch('/api/puestos/?municipio_id=' + munActual)
-            .then(r => r.json()).then(data2 => {
-              selPue.innerHTML = '<option value="">---------</option>';
-              data2.forEach(p => {
-                const sel = p.id == puestoActual ? ' selected' : '';
-                selPue.innerHTML += `<option value="${p.id}"${sel}>${p.nombre}</option>`;
-              });
-              // Luego cargar mesas si hay puesto
-              if (puestoActual) {
-                fetch('/api/mesas/?puesto_id=' + puestoActual)
-                  .then(r => r.json()).then(data3 => {
-                    document.getElementById('id_mesa').innerHTML = '<option value="">---------</option>';
-                    data3.forEach(m => {
-                      const sel = m.id == mesaActual ? ' selected' : '';
-                      document.getElementById('id_mesa').innerHTML += `<option value="${m.id}"${sel}>Mesa ${m.numero}</option>`;
-                    });
-                  });
-              }
-            });
-        }
+    .then(r => r.json())
+    .then(data => {
+      data.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.nombre;
+        if (String(m.id) === String(seleccionarId)) opt.selected = true;
+        selMun.appendChild(opt);
       });
-  }
-  {% endif %}
+      if (seleccionarId) {
+        hidMun.value = seleccionarId;
+        cargarPuestos(seleccionarId, INIT.puesto);
+      }
+    });
+}
+
+function cargarPuestos(munId, seleccionarId) {
+  resetSelect(selPuesto, '— Selecciona puesto —');
+  resetSelect(selMesa,   '— Selecciona puesto primero —');
+  hidPuesto.value = ''; hidMesa.value = '';
+  if (!munId) return;
+
+  fetch('/api/puestos/?municipio_id=' + munId)
+    .then(r => r.json())
+    .then(data => {
+      data.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.nombre;
+        if (String(p.id) === String(seleccionarId)) opt.selected = true;
+        selPuesto.appendChild(opt);
+      });
+      if (seleccionarId) {
+        hidPuesto.value = seleccionarId;
+        cargarMesas(seleccionarId, INIT.mesa);
+      }
+    });
+}
+
+function cargarMesas(puestoId, seleccionarId) {
+  resetSelect(selMesa, '— Selecciona mesa —');
+  hidMesa.value = '';
+  if (!puestoId) return;
+
+  fetch('/api/mesas/?puesto_id=' + puestoId)
+    .then(r => r.json())
+    .then(data => {
+      data.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = 'Mesa ' + m.numero + (m.zona ? ' — ' + m.zona : '');
+        if (String(m.id) === String(seleccionarId)) opt.selected = true;
+        selMesa.appendChild(opt);
+      });
+      if (seleccionarId) hidMesa.value = seleccionarId;
+    });
+}
+
+// Eventos de cambio
+selDep.addEventListener('change', e => {
+  INIT.mun = ''; INIT.puesto = ''; INIT.mesa = '';
+  cargarMunicipios(e.target.value, '');
+});
+selMun.addEventListener('change', e => {
+  hidMun.value = e.target.value;
+  INIT.puesto = ''; INIT.mesa = '';
+  cargarPuestos(e.target.value, '');
+});
+selPuesto.addEventListener('change', e => {
+  hidPuesto.value = e.target.value;
+  INIT.mesa = '';
+  cargarMesas(e.target.value, '');
+});
+selMesa.addEventListener('change', e => {
+  hidMesa.value = e.target.value;
 });
 
-// ── Mapa Leaflet (OpenStreetMap, sin API key) ─────────────────────
-const LAT_INIT = {{ form.instance.latitud|default:"4.7110" }};
-const LNG_INIT = {{ form.instance.longitud|default:"-74.0721" }};
+// Al editar: pre-cargar en cascada
+document.addEventListener('DOMContentLoaded', () => {
+  if (INIT.dep) {
+    cargarMunicipios(INIT.dep, INIT.mun);
+    // El resto de la cadena se dispara desde dentro de cargarMunicipios
+  }
+});
+
+// ════════════════════════════════════════════════════════
+// MAPA LEAFLET
+// ════════════════════════════════════════════════════════
+const LAT_INIT  = {{ form.instance.latitud|default:"4.7110" }};
+const LNG_INIT  = {{ form.instance.longitud|default:"-74.0721" }};
 const ZOOM_INIT = {% if form.instance.latitud %}15{% else %}6{% endif %};
 
 const mapa = L.map('mapa-votante').setView([LAT_INIT, LNG_INIT], ZOOM_INIT);
-
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   maxZoom: 19
 }).addTo(mapa);
 
-// Marcador arrastrable
 const icono = L.divIcon({
   html: '<div style="background:#dc3545;width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.4);"></div>',
-  iconSize: [22, 22], iconAnchor: [11, 22], popupAnchor: [0, -24]
+  iconSize: [22,22], iconAnchor: [11,22], popupAnchor: [0,-24]
 });
 
 let marcador = null;
@@ -158,7 +235,11 @@ function colocarMarcador(lat, lng, zoom) {
     marcador.setLatLng(latlng);
   } else {
     marcador = L.marker(latlng, { draggable: true, icon: icono }).addTo(mapa);
-    marcador.on('dragend', e => actualizarCoordenadas(e.target.getLatLng().lat, e.target.getLatLng().lng));
+    marcador.on('dragend', e => {
+      latInput.value = e.target.getLatLng().lat.toFixed(7);
+      lngInput.value = e.target.getLatLng().lng.toFixed(7);
+      document.getElementById('gps-status').textContent = `📍 ${e.target.getLatLng().lat.toFixed(5)}, ${e.target.getLatLng().lng.toFixed(5)}`;
+    });
   }
   latInput.value = lat.toFixed(7);
   lngInput.value = lng.toFixed(7);
@@ -166,54 +247,42 @@ function colocarMarcador(lat, lng, zoom) {
   document.getElementById('gps-status').textContent = `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 }
 
-function actualizarCoordenadas(lat, lng) {
-  latInput.value = lat.toFixed(7);
-  lngInput.value = lng.toFixed(7);
-  document.getElementById('gps-status').textContent = `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-}
-
-// Clic en el mapa coloca el marcador
 mapa.on('click', e => colocarMarcador(e.latlng.lat, e.latlng.lng, null));
 
-// Si ya tenía coordenadas, mostrar marcador
 {% if form.instance.latitud and form.instance.longitud %}
 colocarMarcador({{ form.instance.latitud }}, {{ form.instance.longitud }}, 15);
 {% endif %}
 
-// Botón GPS: detectar ubicación actual
 function usarMiUbicacion() {
   const st = document.getElementById('gps-status');
-  if (!navigator.geolocation) { st.textContent = '❌ GPS no disponible en este dispositivo'; return; }
+  if (!navigator.geolocation) { st.textContent = '❌ GPS no disponible'; return; }
   st.textContent = '⏳ Obteniendo ubicación...';
   navigator.geolocation.getCurrentPosition(
     pos => colocarMarcador(pos.coords.latitude, pos.coords.longitude, 16),
-    () => { st.textContent = '❌ No se pudo obtener la ubicación. Haz clic en el mapa.'; }
+    () => { st.textContent = '❌ No se pudo obtener. Haz clic en el mapa.'; }
   );
 }
 
-// Botón buscar dirección: usa la dirección escrita para geocodificar con Nominatim
 function buscarDireccion() {
-  const dir   = document.getElementById('id_direccion')?.value?.trim() || '';
-  const barr  = document.getElementById('id_barrio')?.value?.trim()    || '';
-  const munEl = document.getElementById('id_municipio');
-  const mun   = munEl?.options[munEl.selectedIndex]?.text || '';
-  const query = [dir, barr, mun, 'Colombia'].filter(Boolean).join(', ');
-  if (!dir) { alert('Escribe primero la dirección del votante.'); return; }
+  const dir  = document.getElementById('id_direccion')?.value?.trim() || '';
+  const barr = document.getElementById('id_barrio')?.value?.trim()    || '';
+  const mun  = selMun.options[selMun.selectedIndex]?.text || '';
+  const q    = [dir, barr, mun, 'Colombia'].filter(Boolean).join(', ');
+  if (!dir) { alert('Escribe primero la dirección.'); return; }
   const st = document.getElementById('gps-status');
-  st.textContent = '⏳ Buscando "' + query + '"…';
-  fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`)
+  st.textContent = '⏳ Buscando…';
+  fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`)
     .then(r => r.json())
     .then(data => {
       if (data.length) {
         colocarMarcador(parseFloat(data[0].lat), parseFloat(data[0].lon), 16);
         st.textContent = '✅ ' + data[0].display_name.substring(0, 60) + '…';
       } else {
-        st.textContent = '❌ No se encontró la dirección. Haz clic manual en el mapa.';
+        st.textContent = '❌ No encontrado. Haz clic en el mapa.';
       }
     });
 }
 
-// Forzar redibujado del mapa al mostrar (previene tiles grises)
 setTimeout(() => mapa.invalidateSize(), 300);
 </script>
 {% endblock %}

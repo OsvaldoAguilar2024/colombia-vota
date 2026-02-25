@@ -104,6 +104,7 @@ def votante_crear(request):
         'form': form,
         'titulo': 'Registrar Votante',
         'from_encuestador': from_encuestador,
+        'departamentos': Departamento.objects.all().order_by('nombre'),
     })
 
 
