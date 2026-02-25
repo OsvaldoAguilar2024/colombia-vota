@@ -1,5 +1,4 @@
 {% extends 'votacion/base.html' %}
-{% load crispy_forms_tags %}
 
 {% block title %}{{ titulo }} - Colombia Vota{% endblock %}
 {% block breadcrumb %}
@@ -9,11 +8,6 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
-<style>
-#mapa-votante { z-index: 1; }
-#div_id_latitud, #div_id_longitud,
-#div_id_municipio, #div_id_puesto, #div_id_mesa { display: none !important; }
-</style>
 {% endblock %}
 
 {% block content %}
@@ -21,59 +15,157 @@
   <div class="col-12 col-lg-10">
     <div class="card border-0 shadow-sm">
       <div class="card-body p-4">
+
         <h4 class="fw-bold mb-4">
           <i class="bi bi-person-plus text-primary me-2"></i>{{ titulo }}
         </h4>
 
         {% if from_encuestador %}
-        <div class="alert alert-info d-flex align-items-center gap-2 mb-3">
+        <div class="alert alert-info d-flex align-items-center gap-2 mb-4">
           <i class="bi bi-info-circle-fill"></i>
           <span>El ciudadano no está registrado. Complete sus datos para continuar con la encuesta.</span>
         </div>
         {% endif %}
 
-        <form method="post" id="votanteForm" enctype="multipart/form-data">
+        {% if form.errors %}
+        <div class="alert alert-danger mb-4">
+          <strong><i class="bi bi-exclamation-triangle me-2"></i>Corrige los siguientes errores:</strong>
+          <ul class="mb-0 mt-2">
+            {% for field, errors in form.errors.items %}
+              {% for error in errors %}<li><strong>{{ field }}:</strong> {{ error }}</li>{% endfor %}
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
+        <form method="post" id="votanteForm">
           {% csrf_token %}
           {% if from_encuestador %}<input type="hidden" name="from_encuestador" value="1">{% endif %}
 
-          {% crispy form %}
+          {{form.latitud}}
+          {{form.longitud}}
 
-          {# ── Lugar de Votación — renderizado 100% manual para evitar duplicados ── #}
-          <div id="bloque_lugar_votacion" style="margin-top:-10px;">
-            <div class="row">
-              <div class="col-md-6 mb-3">
-                <label class="form-label">Departamento</label>
-                <select id="sel_departamento" class="form-select">
-                  <option value="">---------</option>
-                  {% for dep in departamentos %}
-                  <option value="{{ dep.id }}"
-                    {% if form.instance.departamento_id == dep.id %}selected{% endif %}>
-                    {{ dep.nombre }}
-                  </option>
-                  {% endfor %}
-                </select>
-              </div>
-              <div class="col-md-6 mb-3">
-                <label class="form-label">Ciudad / Municipio</label>
-                <select id="sel_municipio" class="form-select">
-                  <option value="">— Selecciona departamento primero —</option>
-                </select>
-              </div>
+          <!-- ═══ DATOS PERSONALES ══════════════════════════════════ -->
+          <h5 class="text-primary mb-3"><i class="bi bi-person-badge me-2"></i>Datos Personales</h5>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Número de Cédula <span class="text-danger">*</span></label>
+              {{form.cedula}}
+              {% if form.cedula.errors %}<div class="text-danger small">{{form.cedula.errors.0}}</div>{% endif %}
             </div>
-            <div class="row">
-              <div class="col-md-6 mb-3">
-                <label class="form-label">Puesto de Votación</label>
-                <select id="sel_puesto" class="form-select">
-                  <option value="">— Selecciona municipio primero —</option>
-                </select>
-              </div>
-              <div class="col-md-6 mb-3">
-                <label class="form-label">Mesa</label>
-                <select id="sel_mesa" class="form-select">
-                  <option value="">— Selecciona puesto primero —</option>
-                </select>
-              </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Nombres <span class="text-danger">*</span></label>
+              {{form.nombres}}
+              {% if form.nombres.errors %}<div class="text-danger small">{{form.nombres.errors.0}}</div>{% endif %}
             </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Apellidos <span class="text-danger">*</span></label>
+              {{form.apellidos}}
+              {% if form.apellidos.errors %}<div class="text-danger small">{{form.apellidos.errors.0}}</div>{% endif %}
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Correo Electrónico</label>
+              {{form.email}}
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Teléfono</label>
+              {{form.telefono}}
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Fecha de Nacimiento</label>
+              {{form.fecha_nacimiento}}
+            </div>
+          </div>
+
+          <hr>
+
+          <!-- ═══ LUGAR DE VOTACIÓN ════════════════════════════════ -->
+          <h5 class="text-primary mb-3"><i class="bi bi-geo-alt me-2"></i>Lugar de Votación</h5>
+
+          <!-- Campos hidden: reciben valor de los selects JS y se envían al servidor -->
+          <input type="hidden" name="departamento" id="hid_dep"    value="{{ form.instance.departamento_id|default:'' }}">
+          <input type="hidden" name="municipio"    id="hid_mun"    value="{{ form.instance.municipio_id|default:'' }}">
+          <input type="hidden" name="puesto"       id="hid_puesto" value="{{ form.instance.puesto_id|default:'' }}">
+          <input type="hidden" name="mesa"         id="hid_mesa"   value="{{ form.instance.mesa_id|default:'' }}">
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Departamento</label>
+              <select id="sel_dep" class="form-select">
+                <option value="">— Selecciona departamento —</option>
+                {% for dep in departamentos %}
+                <option value="{{ dep.id }}" {% if form.instance.departamento_id == dep.id %}selected{% endif %}>
+                  {{ dep.nombre }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Ciudad / Municipio</label>
+              <select id="sel_mun" class="form-select">
+                <option value="">— Selecciona departamento primero —</option>
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Puesto de Votación</label>
+              <select id="sel_puesto" class="form-select">
+                <option value="">— Selecciona municipio primero —</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Mesa</label>
+              <select id="sel_mesa" class="form-select">
+                <option value="">— Selecciona puesto primero —</option>
+              </select>
+            </div>
+          </div>
+
+          <hr>
+
+          <!-- ═══ DIRECCIÓN DE RESIDENCIA ══════════════════════════ -->
+          <h5 class="text-success mb-3"><i class="bi bi-pin-map me-2"></i>Dirección de Residencia</h5>
+          <div class="row">
+            <div class="col-md-8 mb-3">
+              <label class="form-label">Dirección</label>
+              {{form.direccion}}
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Barrio</label>
+              {{form.barrio}}
+            </div>
+          </div>
+          <div class="mb-4">
+            <label class="form-label fw-semibold">
+              <i class="bi bi-map text-success me-1"></i>Ubicación en el mapa
+              <small class="text-muted fw-normal">(clic en el mapa o usa el GPS)</small>
+            </label>
+            <div class="d-flex gap-2 mb-2 flex-wrap">
+              <button type="button" class="btn btn-outline-success btn-sm" onclick="usarGPS()">
+                <i class="bi bi-crosshair2 me-1"></i>Detectar mi ubicación
+              </button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="buscarDir()">
+                <i class="bi bi-search me-1"></i>Buscar dirección en mapa
+              </button>
+              <span id="gps-status" class="text-muted small align-self-center"></span>
+            </div>
+            <div id="mapa-votante" style="height:320px;border-radius:12px;border:1px solid #dee2e6;"></div>
+            <p class="text-muted mt-1 mb-0" style="font-size:.75rem;">
+              <i class="bi bi-info-circle me-1"></i>Haz clic en el mapa para marcar la dirección exacta del votante.
+            </p>
+          </div>
+
+          <hr>
+
+          <!-- ═══ BOTONES ══════════════════════════════════════════ -->
+          <div class="d-flex gap-2 mt-2">
+            <button type="submit" class="btn btn-primary btn-lg">
+              <i class="bi bi-check-circle me-1"></i>Guardar Votante
+            </button>
+            <a href="{% url 'votante_lista' %}" class="btn btn-secondary btn-lg">Cancelar</a>
           </div>
 
         </form>
@@ -86,200 +178,142 @@
 {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
-// ════════════════════════════════════════════════════════
-// CASCADA: departamento → municipio → puesto → mesa
-// Los selects son completamente manuales (sin Django form)
-// Los valores se envían como campos hidden al servidor
-// ════════════════════════════════════════════════════════
-
-// Valores actuales (para edición)
-const INIT = {
-  dep:    "{{ form.instance.departamento_id|default:'' }}",
-  mun:    "{{ form.instance.municipio_id|default:'' }}",
-  puesto: "{{ form.instance.puesto_id|default:'' }}",
-  mesa:   "{{ form.instance.mesa_id|default:'' }}",
-};
-
-const selDep    = document.getElementById('sel_departamento');
-const selMun    = document.getElementById('sel_municipio');
+// ══ CASCADA ══════════════════════════════════════════════════════
+const selDep    = document.getElementById('sel_dep');
+const selMun    = document.getElementById('sel_mun');
 const selPuesto = document.getElementById('sel_puesto');
 const selMesa   = document.getElementById('sel_mesa');
+const hidDep    = document.getElementById('hid_dep');
+const hidMun    = document.getElementById('hid_mun');
+const hidPuesto = document.getElementById('hid_puesto');
+const hidMesa   = document.getElementById('hid_mesa');
 
-// Campos hidden que se envían al servidor
-const hidMun    = document.getElementById('val_municipio');
-const hidPuesto = document.getElementById('val_puesto');
-const hidMesa   = document.getElementById('val_mesa');
+// Valores a pre-seleccionar al editar
+const SAVED = { dep: hidDep.value, mun: hidMun.value, puesto: hidPuesto.value, mesa: hidMesa.value };
 
-function resetSelect(sel, placeholder) {
+function llenar(sel, items, placeholder, autoId) {
   sel.innerHTML = `<option value="">${placeholder}</option>`;
+  items.forEach(it => {
+    const o = document.createElement('option');
+    o.value = it.id; o.textContent = it.txt;
+    if (String(it.id) === String(autoId)) o.selected = true;
+    sel.appendChild(o);
+  });
 }
 
-function cargarMunicipios(depId, seleccionarId) {
-  resetSelect(selMun,    '— Selecciona municipio —');
-  resetSelect(selPuesto, '— Selecciona municipio primero —');
-  resetSelect(selMesa,   '— Selecciona puesto primero —');
+function cargarMuns(depId, autoMun) {
+  llenar(selMun,    [], '— Cargando… —', '');
+  llenar(selPuesto, [], '— Selecciona municipio primero —', '');
+  llenar(selMesa,   [], '— Selecciona puesto primero —', '');
   hidMun.value = ''; hidPuesto.value = ''; hidMesa.value = '';
-  if (!depId) return;
-
+  if (!depId) { llenar(selMun, [], '— Selecciona departamento primero —', ''); return; }
   fetch('/api/municipios/?departamento_id=' + depId)
-    .then(r => r.json())
-    .then(data => {
-      data.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m.id;
-        opt.textContent = m.nombre;
-        if (String(m.id) === String(seleccionarId)) opt.selected = true;
-        selMun.appendChild(opt);
-      });
-      if (seleccionarId) {
-        hidMun.value = seleccionarId;
-        cargarPuestos(seleccionarId, INIT.puesto);
-      }
+    .then(r => r.json()).then(data => {
+      llenar(selMun, data.map(m => ({id: m.id, txt: m.nombre})), '— Selecciona municipio —', autoMun);
+      if (autoMun) { hidMun.value = autoMun; cargarPuestos(autoMun, SAVED.puesto); }
     });
 }
 
-function cargarPuestos(munId, seleccionarId) {
-  resetSelect(selPuesto, '— Selecciona puesto —');
-  resetSelect(selMesa,   '— Selecciona puesto primero —');
+function cargarPuestos(munId, autoPuesto) {
+  llenar(selPuesto, [], '— Cargando… —', '');
+  llenar(selMesa,   [], '— Selecciona puesto primero —', '');
   hidPuesto.value = ''; hidMesa.value = '';
-  if (!munId) return;
-
+  if (!munId) { llenar(selPuesto, [], '— Selecciona municipio primero —', ''); return; }
   fetch('/api/puestos/?municipio_id=' + munId)
-    .then(r => r.json())
-    .then(data => {
-      data.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.id;
-        opt.textContent = p.nombre;
-        if (String(p.id) === String(seleccionarId)) opt.selected = true;
-        selPuesto.appendChild(opt);
-      });
-      if (seleccionarId) {
-        hidPuesto.value = seleccionarId;
-        cargarMesas(seleccionarId, INIT.mesa);
-      }
+    .then(r => r.json()).then(data => {
+      llenar(selPuesto, data.map(p => ({id: p.id, txt: p.nombre})), '— Selecciona puesto —', autoPuesto);
+      if (autoPuesto) { hidPuesto.value = autoPuesto; cargarMesas(autoPuesto, SAVED.mesa); }
     });
 }
 
-function cargarMesas(puestoId, seleccionarId) {
-  resetSelect(selMesa, '— Selecciona mesa —');
+function cargarMesas(puestoId, autoMesa) {
+  llenar(selMesa, [], '— Cargando… —', '');
   hidMesa.value = '';
-  if (!puestoId) return;
-
+  if (!puestoId) { llenar(selMesa, [], '— Selecciona puesto primero —', ''); return; }
   fetch('/api/mesas/?puesto_id=' + puestoId)
-    .then(r => r.json())
-    .then(data => {
-      data.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m.id;
-        opt.textContent = 'Mesa ' + m.numero + (m.zona ? ' — ' + m.zona : '');
-        if (String(m.id) === String(seleccionarId)) opt.selected = true;
-        selMesa.appendChild(opt);
-      });
-      if (seleccionarId) hidMesa.value = seleccionarId;
+    .then(r => r.json()).then(data => {
+      llenar(selMesa, data.map(m => ({id: m.id, txt: 'Mesa ' + m.numero + (m.zona ? ' — '+m.zona : '')})), '— Selecciona mesa —', autoMesa);
+      if (autoMesa) hidMesa.value = autoMesa;
     });
 }
 
-// Eventos de cambio
 selDep.addEventListener('change', e => {
-  INIT.mun = ''; INIT.puesto = ''; INIT.mesa = '';
-  cargarMunicipios(e.target.value, '');
+  hidDep.value = e.target.value;
+  SAVED.mun = ''; SAVED.puesto = ''; SAVED.mesa = '';
+  cargarMuns(e.target.value, '');
 });
 selMun.addEventListener('change', e => {
   hidMun.value = e.target.value;
-  INIT.puesto = ''; INIT.mesa = '';
+  SAVED.puesto = ''; SAVED.mesa = '';
   cargarPuestos(e.target.value, '');
 });
 selPuesto.addEventListener('change', e => {
   hidPuesto.value = e.target.value;
-  INIT.mesa = '';
+  SAVED.mesa = '';
   cargarMesas(e.target.value, '');
 });
-selMesa.addEventListener('change', e => {
-  hidMesa.value = e.target.value;
-});
+selMesa.addEventListener('change', e => { hidMesa.value = e.target.value; });
 
-// Al editar: pre-cargar en cascada
-document.addEventListener('DOMContentLoaded', () => {
-  if (INIT.dep) {
-    cargarMunicipios(INIT.dep, INIT.mun);
-    // El resto de la cadena se dispara desde dentro de cargarMunicipios
-  }
-});
+// Pre-cargar al editar
+if (SAVED.dep) cargarMuns(SAVED.dep, SAVED.mun);
 
-// ════════════════════════════════════════════════════════
-// MAPA LEAFLET
-// ════════════════════════════════════════════════════════
-const LAT_INIT  = {{ form.instance.latitud|default:"4.7110" }};
-const LNG_INIT  = {{ form.instance.longitud|default:"-74.0721" }};
-const ZOOM_INIT = {% if form.instance.latitud %}15{% else %}6{% endif %};
+// ══ MAPA ═════════════════════════════════════════════════════════
+const latInput = document.querySelector('[name="latitud"]');
+const lngInput = document.querySelector('[name="longitud"]');
+const LAT0 = parseFloat(latInput.value) || 4.711;
+const LNG0 = parseFloat(lngInput.value) || -74.0721;
+const ZOOM0 = latInput.value ? 15 : 6;
 
-const mapa = L.map('mapa-votante').setView([LAT_INIT, LNG_INIT], ZOOM_INIT);
+const mapa = L.map('mapa-votante').setView([LAT0, LNG0], ZOOM0);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-  maxZoom: 19
+  attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom:19
 }).addTo(mapa);
 
 const icono = L.divIcon({
-  html: '<div style="background:#dc3545;width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.4);"></div>',
-  iconSize: [22,22], iconAnchor: [11,22], popupAnchor: [0,-24]
+  html:'<div style="background:#dc3545;width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.4);"></div>',
+  iconSize:[22,22],iconAnchor:[11,22],popupAnchor:[0,-24]
 });
-
 let marcador = null;
-const latInput = document.getElementById('id_latitud');
-const lngInput = document.getElementById('id_longitud');
 
-function colocarMarcador(lat, lng, zoom) {
-  const latlng = L.latLng(lat, lng);
-  if (marcador) {
-    marcador.setLatLng(latlng);
-  } else {
-    marcador = L.marker(latlng, { draggable: true, icon: icono }).addTo(mapa);
+function ponerMarcador(lat, lng, zoom) {
+  if (marcador) { marcador.setLatLng([lat,lng]); } else {
+    marcador = L.marker([lat,lng],{draggable:true,icon:icono}).addTo(mapa);
     marcador.on('dragend', e => {
-      latInput.value = e.target.getLatLng().lat.toFixed(7);
-      lngInput.value = e.target.getLatLng().lng.toFixed(7);
-      document.getElementById('gps-status').textContent = `📍 ${e.target.getLatLng().lat.toFixed(5)}, ${e.target.getLatLng().lng.toFixed(5)}`;
+      const p = e.target.getLatLng();
+      latInput.value = p.lat.toFixed(7); lngInput.value = p.lng.toFixed(7);
+      document.getElementById('gps-status').textContent = `📍 ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
     });
   }
-  latInput.value = lat.toFixed(7);
-  lngInput.value = lng.toFixed(7);
-  if (zoom) mapa.setView(latlng, zoom);
+  latInput.value = lat.toFixed(7); lngInput.value = lng.toFixed(7);
+  if (zoom) mapa.setView([lat,lng],zoom);
   document.getElementById('gps-status').textContent = `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 }
 
-mapa.on('click', e => colocarMarcador(e.latlng.lat, e.latlng.lng, null));
+mapa.on('click', e => ponerMarcador(e.latlng.lat, e.latlng.lng, null));
+if (latInput.value && lngInput.value) ponerMarcador(parseFloat(latInput.value), parseFloat(lngInput.value), 15);
 
-{% if form.instance.latitud and form.instance.longitud %}
-colocarMarcador({{ form.instance.latitud }}, {{ form.instance.longitud }}, 15);
-{% endif %}
-
-function usarMiUbicacion() {
+function usarGPS() {
   const st = document.getElementById('gps-status');
-  if (!navigator.geolocation) { st.textContent = '❌ GPS no disponible'; return; }
+  if (!navigator.geolocation) { st.textContent='❌ GPS no disponible'; return; }
   st.textContent = '⏳ Obteniendo ubicación...';
   navigator.geolocation.getCurrentPosition(
-    pos => colocarMarcador(pos.coords.latitude, pos.coords.longitude, 16),
-    () => { st.textContent = '❌ No se pudo obtener. Haz clic en el mapa.'; }
+    p => ponerMarcador(p.coords.latitude, p.coords.longitude, 16),
+    () => { st.textContent='❌ No se pudo. Haz clic en el mapa.'; }
   );
 }
 
-function buscarDireccion() {
-  const dir  = document.getElementById('id_direccion')?.value?.trim() || '';
-  const barr = document.getElementById('id_barrio')?.value?.trim()    || '';
+function buscarDir() {
+  const dir  = document.querySelector('[name="direccion"]')?.value?.trim() || '';
+  const barr = document.querySelector('[name="barrio"]')?.value?.trim()    || '';
   const mun  = selMun.options[selMun.selectedIndex]?.text || '';
-  const q    = [dir, barr, mun, 'Colombia'].filter(Boolean).join(', ');
-  if (!dir) { alert('Escribe primero la dirección.'); return; }
+  const q    = [dir,barr,mun,'Colombia'].filter(x => x && !x.startsWith('—')).join(', ');
+  if (!dir) { alert('Escribe primero la dirección del votante.'); return; }
   const st = document.getElementById('gps-status');
   st.textContent = '⏳ Buscando…';
   fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`)
-    .then(r => r.json())
-    .then(data => {
-      if (data.length) {
-        colocarMarcador(parseFloat(data[0].lat), parseFloat(data[0].lon), 16);
-        st.textContent = '✅ ' + data[0].display_name.substring(0, 60) + '…';
-      } else {
-        st.textContent = '❌ No encontrado. Haz clic en el mapa.';
-      }
+    .then(r => r.json()).then(data => {
+      if (data.length) { ponerMarcador(parseFloat(data[0].lat), parseFloat(data[0].lon), 16); st.textContent = '✅ '+data[0].display_name.substring(0,60)+'…'; }
+      else st.textContent = '❌ No encontrado. Haz clic en el mapa.';
     });
 }
 
