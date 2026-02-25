@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "python manage.py migrate && python manage.py cargar_datos_colombia && python manage.py crear_superusuario && python manage.py collectstatic --noinput && gunicorn config.wsgi --bind [::]:$PORT",
+    "startCommand": "python check_db.py",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 5
   }
