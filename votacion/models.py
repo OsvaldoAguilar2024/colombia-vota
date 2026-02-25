@@ -174,6 +174,13 @@ class Votante(models.Model):
     puesto = models.ForeignKey(PuestoVotacion, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Puesto de Votación')
     mesa = models.ForeignKey(MesaVotacion, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Mesa')
 
+    # Dirección física del votante
+    direccion = models.CharField(max_length=300, blank=True, verbose_name='Dirección de residencia')
+    barrio = models.CharField(max_length=150, blank=True, verbose_name='Barrio')
+    # Coordenadas geográficas de la dirección del votante
+    latitud  = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True, verbose_name='Latitud')
+    longitud = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True, verbose_name='Longitud')
+
     registrado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)

@@ -270,6 +270,9 @@
         <a href="{% url 'encuestador_estadisticas' %}" class="nav-link {% if request.resolver_match.url_name == 'encuestador_estadisticas' %}active{% endif %}">
             <i class="bi bi-bar-chart-line me-2"></i> Estadísticas
         </a>
+        <a href="{% url 'mapa_calor_votantes' %}" class="nav-link {% if request.resolver_match.url_name == 'mapa_calor_votantes' %}active{% endif %}">
+            <i class="bi bi-map me-2"></i> Mapa de Calor
+        </a>
 
         <div class="nav-section">Sistema</div>
         <a href="/admin/" class="nav-link" target="_blank">

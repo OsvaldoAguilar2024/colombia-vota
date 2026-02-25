@@ -10,13 +10,16 @@ class VotanteForm(forms.ModelForm):
     class Meta:
         model = Votante
         fields = ['cedula', 'nombres', 'apellidos', 'email', 'telefono',
-                  'fecha_nacimiento', 'departamento', 'municipio', 'puesto', 'mesa']
+                  'fecha_nacimiento', 'departamento', 'municipio', 'puesto', 'mesa',
+                  'direccion', 'barrio', 'latitud', 'longitud']
         widgets = {
             'fecha_nacimiento': forms.DateInput(attrs={'type': 'date'}),
             'departamento': forms.Select(attrs={'id': 'id_departamento', 'onchange': 'cargarMunicipios(this.value)'}),
             'municipio': forms.Select(attrs={'id': 'id_municipio', 'onchange': 'cargarPuestos(this.value)'}),
             'puesto': forms.Select(attrs={'id': 'id_puesto', 'onchange': 'cargarMesas(this.value)'}),
             'mesa': forms.Select(attrs={'id': 'id_mesa'}),
+            'latitud':  forms.HiddenInput(attrs={'id': 'id_latitud'}),
+            'longitud': forms.HiddenInput(attrs={'id': 'id_longitud'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -74,6 +77,32 @@ class VotanteForm(forms.ModelForm):
                 Column('puesto', css_class='col-md-6 mb-3'),
                 Column('mesa', css_class='col-md-6 mb-3'),
             ),
+            HTML('<hr><h5 class="text-success mb-3"><i class="bi bi-pin-map"></i> Dirección de Residencia</h5>'),
+            Row(
+                Column('direccion', css_class='col-md-8 mb-3'),
+                Column('barrio', css_class='col-md-4 mb-3'),
+            ),
+            HTML('''<div id="bloque-mapa" class="mb-4">
+              <label class="form-label fw-semibold">
+                <i class="bi bi-map text-success me-1"></i>
+                Ubicación en el mapa <small class="text-muted fw-normal">(clic en el mapa o usa el GPS)</small>
+              </label>
+              <div class="d-flex gap-2 mb-2 flex-wrap">
+                <button type="button" class="btn btn-outline-success btn-sm" onclick="usarMiUbicacion()">
+                  <i class="bi bi-crosshair2 me-1"></i>Detectar mi ubicación
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="buscarDireccion()">
+                  <i class="bi bi-search me-1"></i>Buscar dirección en mapa
+                </button>
+                <span id="gps-status" class="text-muted small align-self-center"></span>
+              </div>
+              <div id="mapa-votante" style="height:340px;border-radius:12px;border:1px solid #dee2e6;"></div>
+              <p class="text-muted mt-1 mb-0" style="font-size:.75rem;">
+                <i class="bi bi-info-circle me-1"></i>Haz clic en el mapa para colocar el marcador en la dirección exacta del votante.
+              </p>
+            </div>'''),
+            Field('latitud'),
+            Field('longitud'),
             Div(
                 Submit('submit', 'Guardar Votante', css_class='btn btn-primary btn-lg me-2'),
                 HTML('<a href="{% url \'votante_lista\' %}" class="btn btn-secondary btn-lg">Cancelar</a>'),

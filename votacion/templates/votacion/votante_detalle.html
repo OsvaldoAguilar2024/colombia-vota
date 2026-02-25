@@ -126,4 +126,49 @@
     </div>
 </div>
 {% endif %}
+
+{% if votante.latitud and votante.longitud or votante.direccion %}
+<div class="card border-0 shadow-sm mt-4">
+  <div class="card-body p-4">
+    <h5 class="fw-bold mb-2">
+      <i class="bi bi-pin-map text-success me-2"></i>Dirección de Residencia
+    </h5>
+    {% if votante.direccion %}
+    <p class="text-muted mb-3">
+      <i class="bi bi-house me-1"></i>{{ votante.direccion }}{% if votante.barrio %}, Barrio {{ votante.barrio }}{% endif %}
+    </p>
+    {% endif %}
+    {% if votante.latitud and votante.longitud %}
+    <div id="mapa-detalle" style="height:300px;border-radius:12px;border:1px solid #dee2e6;"></div>
+    <p class="text-muted mt-2 mb-0" style="font-size:.75rem;">
+      <i class="bi bi-crosshair me-1"></i>{{ votante.latitud }}, {{ votante.longitud }}
+    </p>
+    {% else %}
+    <div class="alert alert-light border mb-0">
+      <i class="bi bi-info-circle me-1"></i>Sin coordenadas registradas. Edita el votante para agregar la ubicación.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_css %}
+{% if votante.latitud and votante.longitud %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if votante.latitud and votante.longitud %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const mapa = L.map('mapa-detalle').setView([{{ votante.latitud }}, {{ votante.longitud }}], 15);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OpenStreetMap',maxZoom:19}).addTo(mapa);
+const icono = L.divIcon({html:'<div style="background:#dc3545;width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.4);"></div>',iconSize:[22,22],iconAnchor:[11,22],popupAnchor:[0,-24]});
+L.marker([{{ votante.latitud }}, {{ votante.longitud }}],{icon:icono}).addTo(mapa).bindPopup('<b>{{ votante.nombre_completo }}</b>{% if votante.direccion %}<br>{{ votante.direccion }}{% endif %}').openPopup();
+setTimeout(()=>mapa.invalidateSize(),200);
+</script>
+{% endif %}
 {% endblock %}

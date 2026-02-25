@@ -56,4 +56,5 @@ urlpatterns = [
     path('encuestador/votante/<int:pk>/eventos/', views.encuestador_elegir_evento, name='encuestador_elegir_evento'),
     path('encuestador/votante/<int:votante_pk>/evento/<int:evento_pk>/votar/', views.encuestador_registrar_voto, name='encuestador_registrar_voto'),
     path('encuestador/estadisticas/', views.encuestador_estadisticas, name='encuestador_estadisticas'),
+    path('encuestador/mapa-calor/', views.mapa_calor_votantes, name='mapa_calor_votantes'),
 ]

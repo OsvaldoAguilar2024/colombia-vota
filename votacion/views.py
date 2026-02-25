@@ -658,3 +658,67 @@ def encuestador_estadisticas(request):
         'resultados': resultados,
         'total_evento': total_evento,
     })
+
+
+# ── MAPA DE CALOR DE VOTANTES ─────────────────────────────────────
+
+@login_required
+def mapa_calor_votantes(request):
+    """Mapa de calor de votantes según su dirección de residencia."""
+    from django.core.serializers.json import DjangoJSONEncoder
+    import json
+
+    # Filtros opcionales
+    evento_id    = request.GET.get('evento')
+    candidato_id = request.GET.get('candidato')
+
+    eventos    = EventoElectoral.objects.filter(activo=True)
+    candidatos = []
+    evento_sel    = None
+    candidato_sel = None
+
+    if evento_id:
+        evento_sel = get_object_or_404(EventoElectoral, pk=evento_id)
+        candidatos = Candidato.objects.filter(evento=evento_sel, activo=True)
+
+    # Construir queryset de votantes con coordenadas
+    votantes_qs = Votante.objects.filter(
+        latitud__isnull=False,
+        longitud__isnull=False
+    ).select_related('municipio', 'departamento')
+
+    # Si hay filtro de candidato, solo mostrar votantes que lo encuestaron
+    if candidato_id and evento_id:
+        candidato_sel = get_object_or_404(Candidato, pk=candidato_id)
+        ids_votantes = Encuesta.objects.filter(
+            candidato_id=candidato_id
+        ).values_list('votante_id', flat=True)
+        votantes_qs = votantes_qs.filter(pk__in=ids_votantes)
+    elif evento_id:
+        # Todos los votantes encuestados en ese evento
+        ids_votantes = Encuesta.objects.filter(
+            evento_id=evento_id
+        ).values_list('votante_id', flat=True)
+        votantes_qs = votantes_qs.filter(pk__in=ids_votantes)
+
+    # Serializar puntos para el mapa
+    puntos = []
+    for v in votantes_qs:
+        puntos.append({
+            'lat':    float(v.latitud),
+            'lng':    float(v.longitud),
+            'nombre': v.nombre_completo,
+            'cedula': v.cedula,
+            'mun':    v.municipio.nombre if v.municipio else '',
+            'dir':    v.direccion or '',
+        })
+
+    return render(request, 'votacion/encuestador/mapa_calor.html', {
+        'puntos_json':    json.dumps(puntos, cls=DjangoJSONEncoder),
+        'total_puntos':   len(puntos),
+        'eventos':        eventos,
+        'candidatos':     candidatos,
+        'evento_sel':     evento_sel,
+        'candidato_sel':  candidato_sel,
+        'total_votantes_geo': Votante.objects.filter(latitud__isnull=False).count(),
+    })
