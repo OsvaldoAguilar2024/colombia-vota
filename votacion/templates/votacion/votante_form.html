@@ -79,6 +79,16 @@ function cargarMesas(puestoId) {
     });
 }
 
+// ── Asegurar eventos aunque el widget no tenga onchange ───────────
+document.addEventListener('DOMContentLoaded', function() {
+  const selDep = document.getElementById('id_departamento');
+  const selMun = document.getElementById('id_municipio');
+  const selPue = document.getElementById('id_puesto');
+  if (selDep) selDep.addEventListener('change', e => cargarMunicipios(e.target.value));
+  if (selMun) selMun.addEventListener('change', e => cargarPuestos(e.target.value));
+  if (selPue) selPue.addEventListener('change', e => cargarMesas(e.target.value));
+});
+
 // ── Mapa Leaflet (OpenStreetMap, sin API key) ─────────────────────
 const LAT_INIT = {{ form.instance.latitud|default:"4.7110" }};
 const LNG_INIT = {{ form.instance.longitud|default:"-74.0721" }};
