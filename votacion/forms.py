@@ -25,42 +25,45 @@ class VotanteForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        # Al CREAR (GET sin datos): selects vacíos, el AJAX los llena
+        # Al GUARDAR (POST): se llenan con el valor enviado para pasar validación
+        # Al EDITAR: se llenan con los datos del objeto existente
+
         # ── Municipio ──────────────────────────────────────────────
-        if 'departamento' in self.data:
+        if 'municipio' in self.data and self.data.get('municipio'):
             try:
-                dep_id = int(self.data.get('departamento'))
-                self.fields['municipio'].queryset = Municipio.objects.filter(departamento_id=dep_id)
+                mun_id = int(self.data['municipio'])
+                self.fields['municipio'].queryset = Municipio.objects.filter(pk=mun_id)
             except (ValueError, TypeError):
-                self.fields['municipio'].queryset = Municipio.objects.all()
-        elif self.instance.pk and self.instance.departamento:
-            self.fields['municipio'].queryset = Municipio.objects.filter(departamento=self.instance.departamento)
+                self.fields['municipio'].queryset = Municipio.objects.none()
+        elif self.instance.pk and self.instance.municipio:
+            self.fields['municipio'].queryset = Municipio.objects.filter(pk=self.instance.municipio.pk)
         else:
-            # Permitir todos para que no falle la validación cuando viene vía AJAX
-            self.fields['municipio'].queryset = Municipio.objects.all()
+            self.fields['municipio'].queryset = Municipio.objects.none()
 
         # ── Puesto ─────────────────────────────────────────────────
-        if 'municipio' in self.data:
+        if 'puesto' in self.data and self.data.get('puesto'):
             try:
-                mun_id = int(self.data.get('municipio'))
-                self.fields['puesto'].queryset = PuestoVotacion.objects.filter(municipio_id=mun_id)
+                puesto_id = int(self.data['puesto'])
+                self.fields['puesto'].queryset = PuestoVotacion.objects.filter(pk=puesto_id)
             except (ValueError, TypeError):
-                self.fields['puesto'].queryset = PuestoVotacion.objects.all()
-        elif self.instance.pk and self.instance.municipio:
-            self.fields['puesto'].queryset = PuestoVotacion.objects.filter(municipio=self.instance.municipio)
+                self.fields['puesto'].queryset = PuestoVotacion.objects.none()
+        elif self.instance.pk and self.instance.puesto:
+            self.fields['puesto'].queryset = PuestoVotacion.objects.filter(pk=self.instance.puesto.pk)
         else:
-            self.fields['puesto'].queryset = PuestoVotacion.objects.all()
+            self.fields['puesto'].queryset = PuestoVotacion.objects.none()
 
         # ── Mesa ───────────────────────────────────────────────────
-        if 'puesto' in self.data:
+        if 'mesa' in self.data and self.data.get('mesa'):
             try:
-                puesto_id = int(self.data.get('puesto'))
-                self.fields['mesa'].queryset = MesaVotacion.objects.filter(puesto_id=puesto_id)
+                mesa_id = int(self.data['mesa'])
+                self.fields['mesa'].queryset = MesaVotacion.objects.filter(pk=mesa_id)
             except (ValueError, TypeError):
-                self.fields['mesa'].queryset = MesaVotacion.objects.all()
-        elif self.instance.pk and self.instance.puesto:
-            self.fields['mesa'].queryset = MesaVotacion.objects.filter(puesto=self.instance.puesto)
+                self.fields['mesa'].queryset = MesaVotacion.objects.none()
+        elif self.instance.pk and self.instance.mesa:
+            self.fields['mesa'].queryset = MesaVotacion.objects.filter(pk=self.instance.mesa.pk)
         else:
-            self.fields['mesa'].queryset = MesaVotacion.objects.all()
+            self.fields['mesa'].queryset = MesaVotacion.objects.none()
 
         self.helper = FormHelper()
         self.helper.layout = Layout(

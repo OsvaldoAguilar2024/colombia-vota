@@ -84,9 +84,50 @@ document.addEventListener('DOMContentLoaded', function() {
   const selDep = document.getElementById('id_departamento');
   const selMun = document.getElementById('id_municipio');
   const selPue = document.getElementById('id_puesto');
+
   if (selDep) selDep.addEventListener('change', e => cargarMunicipios(e.target.value));
   if (selMun) selMun.addEventListener('change', e => cargarPuestos(e.target.value));
   if (selPue) selPue.addEventListener('change', e => cargarMesas(e.target.value));
+
+  // Al EDITAR: pre-cargar los selects dependientes con los valores guardados
+  {% if form.instance.pk %}
+  const munActual   = "{{ form.instance.municipio_id|default:'' }}";
+  const puestoActual = "{{ form.instance.puesto_id|default:'' }}";
+  const mesaActual   = "{{ form.instance.mesa_id|default:'' }}";
+
+  if (selDep && selDep.value) {
+    fetch('/api/municipios/?departamento_id=' + selDep.value)
+      .then(r => r.json()).then(data => {
+        selMun.innerHTML = '<option value="">---------</option>';
+        data.forEach(m => {
+          const sel = m.id == munActual ? ' selected' : '';
+          selMun.innerHTML += `<option value="${m.id}"${sel}>${m.nombre}</option>`;
+        });
+        // Luego cargar puestos si hay municipio
+        if (munActual) {
+          fetch('/api/puestos/?municipio_id=' + munActual)
+            .then(r => r.json()).then(data2 => {
+              selPue.innerHTML = '<option value="">---------</option>';
+              data2.forEach(p => {
+                const sel = p.id == puestoActual ? ' selected' : '';
+                selPue.innerHTML += `<option value="${p.id}"${sel}>${p.nombre}</option>`;
+              });
+              // Luego cargar mesas si hay puesto
+              if (puestoActual) {
+                fetch('/api/mesas/?puesto_id=' + puestoActual)
+                  .then(r => r.json()).then(data3 => {
+                    document.getElementById('id_mesa').innerHTML = '<option value="">---------</option>';
+                    data3.forEach(m => {
+                      const sel = m.id == mesaActual ? ' selected' : '';
+                      document.getElementById('id_mesa').innerHTML += `<option value="${m.id}"${sel}>Mesa ${m.numero}</option>`;
+                    });
+                  });
+              }
+            });
+        }
+      });
+  }
+  {% endif %}
 });
 
 // ── Mapa Leaflet (OpenStreetMap, sin API key) ─────────────────────
