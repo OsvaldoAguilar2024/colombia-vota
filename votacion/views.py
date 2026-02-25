@@ -30,20 +30,20 @@ def dashboard(request):
 
 def municipios_por_departamento(request):
     dep_id = request.GET.get('departamento_id')
-    municipios = list(Municipio.objects.filter(departamento_id=dep_id).values('id', 'nombre').order_by('nombre'))
-    return JsonResponse({'municipios': municipios})
+    data = list(Municipio.objects.filter(departamento_id=dep_id).values('id', 'nombre').order_by('nombre'))
+    return JsonResponse(data, safe=False)
 
 
 def puestos_por_municipio(request):
     mun_id = request.GET.get('municipio_id')
-    puestos = list(PuestoVotacion.objects.filter(municipio_id=mun_id).values('id', 'nombre', 'direccion').order_by('nombre'))
-    return JsonResponse({'puestos': puestos})
+    data = list(PuestoVotacion.objects.filter(municipio_id=mun_id).values('id', 'nombre', 'direccion').order_by('nombre'))
+    return JsonResponse(data, safe=False)
 
 
 def mesas_por_puesto(request):
     puesto_id = request.GET.get('puesto_id')
-    mesas = list(MesaVotacion.objects.filter(puesto_id=puesto_id).values('id', 'numero', 'zona').order_by('numero'))
-    return JsonResponse({'mesas': mesas})
+    data = list(MesaVotacion.objects.filter(puesto_id=puesto_id).values('id', 'numero', 'zona').order_by('numero'))
+    return JsonResponse(data, safe=False)
 
 
 # ─── VOTANTES ────────────────────────────────────────────────────────────────
