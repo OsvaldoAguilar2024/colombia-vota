@@ -33,6 +33,8 @@ INSTALLED_APPS = [
     'crispy_bootstrap5',
     'import_export',
     'votacion',
+    'cloudinary',
+    'cloudinary_storage',
 ]
 
 MIDDLEWARE = [

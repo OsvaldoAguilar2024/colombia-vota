@@ -57,4 +57,11 @@ urlpatterns = [
     path('encuestador/votante/<int:votante_pk>/evento/<int:evento_pk>/votar/', views.encuestador_registrar_voto, name='encuestador_registrar_voto'),
     path('encuestador/estadisticas/', views.encuestador_estadisticas, name='encuestador_estadisticas'),
     path('encuestador/mapa-calor/', views.mapa_calor_votantes, name='mapa_calor_votantes'),
+
+    # MODULO TESTIGO ELECTORAL
+    path('testigo/', views.testigo_inicio, name='testigo_inicio'),
+    path('testigo/mesa/<int:mesa_id>/ingresar/', views.testigo_ingresar, name='testigo_ingresar'),
+    path('testigo/dashboard/', views.testigo_dashboard, name='testigo_dashboard'),
+    path('testigo/sesion/<int:sesion_id>/detalle/', views.testigo_detalle_mesa, name='testigo_detalle_mesa'),
+    path('testigo/sesion/<int:sesion_id>/reabrir/', views.testigo_reabrir_mesa, name='testigo_reabrir_mesa'),
 ]

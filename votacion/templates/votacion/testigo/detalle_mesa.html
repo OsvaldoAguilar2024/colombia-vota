@@ -1,0 +1,208 @@
+{% extends 'votacion/base.html' %}
+{% block title %}Detalle Mesa {{ sesion.mesa.numero }}{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'testigo_inicio' %}">Testigo Electoral</a></li>
+<li class="breadcrumb-item active">Detalle Mesa {{ sesion.mesa.numero }}</li>
+{% endblock %}
+
+{% block content %}
+{# Header #}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <h5 class="fw-bold mb-1">
+          <i class="bi bi-geo-alt-fill text-primary me-2"></i>{{ sesion.mesa.puesto.nombre }}
+        </h5>
+        <div class="text-muted">
+          {{ sesion.mesa.puesto.municipio.nombre }}, {{ sesion.mesa.puesto.municipio.departamento.nombre }}
+        </div>
+        <div class="mt-2 d-flex gap-2 flex-wrap">
+          <span class="badge bg-primary fs-6">Mesa {{ sesion.mesa.numero }}</span>
+          {% if sesion.estado == 'CERRADA' %}
+          <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Acta cerrada</span>
+          {% else %}
+          <span class="badge bg-warning text-dark"><i class="bi bi-pencil me-1"></i>Borrador</span>
+          {% endif %}
+          <span class="badge bg-secondary">{{ sesion.evento.nombre }}</span>
+        </div>
+      </div>
+      <div class="col-md-4 text-md-end mt-3 mt-md-0">
+        <div class="small text-muted">Testigo: <strong>{{ sesion.testigo.get_full_name|default:sesion.testigo.username|default:"—" }}</strong></div>
+        <div class="small text-muted">Registrado: {{ sesion.fecha_apertura|date:"d/m/Y H:i" }}</div>
+        {% if sesion.fecha_cierre %}
+        <div class="small text-success">Cerrada: {{ sesion.fecha_cierre|date:"d/m/Y H:i" }}</div>
+        {% endif %}
+        <div class="mt-2 d-flex gap-2 justify-content-md-end">
+          <a href="{% url 'testigo_ingresar' sesion.mesa.pk %}?evento_id={{ sesion.evento.pk }}" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-pencil me-1"></i>Editar
+          </a>
+          <a href="{% url 'testigo_dashboard' %}?evento_id={{ sesion.evento.pk }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-bar-chart me-1"></i>Dashboard
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+
+  {# Totales de la mesa #}
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header fw-semibold bg-dark text-white">
+        <i class="bi bi-clipboard-data me-2"></i>Totales de la Mesa
+      </div>
+      <div class="card-body">
+        <table class="table table-sm mb-0">
+          <tr>
+            <td class="text-muted">Total votos escrutados</td>
+            <td class="text-end fw-bold fs-5">{{ sesion.total_votos_mesa }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted">Votos en blanco</td>
+            <td class="text-end">{{ sesion.votos_blancos }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted">Votos nulos</td>
+            <td class="text-end">{{ sesion.votos_nulos }}</td>
+          </tr>
+          <tr class="table-light">
+            <td class="text-muted fw-semibold">Votos por candidatos</td>
+            <td class="text-end fw-bold">{{ sesion.votos_candidatos }}</td>
+          </tr>
+        </table>
+        {% if sesion.observacion %}
+        <div class="mt-3 p-2 bg-light rounded small">
+          <strong>Observaciones:</strong><br>{{ sesion.observacion }}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# Foto E-14 #}
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header fw-semibold bg-warning text-dark">
+        <i class="bi bi-camera me-2"></i>Evidencia E-14
+      </div>
+      <div class="card-body text-center">
+        {% if sesion.foto_e14 %}
+        <img src="{{ sesion.foto_e14.url }}" class="img-fluid img-thumbnail"
+          style="max-height:280px; cursor:pointer"
+          onclick="window.open('{{ sesion.foto_e14.url }}')"
+          title="Clic para ver en tamaño completo">
+        <div class="small text-muted mt-2">
+          <i class="bi bi-zoom-in me-1"></i>Clic en la imagen para ampliar
+        </div>
+        {% else %}
+        <div class="text-muted py-5">
+          <i class="bi bi-image" style="font-size:3rem;"></i>
+          <p class="mt-2 small">Sin foto del E-14</p>
+          <a href="{% url 'testigo_ingresar' sesion.mesa.pk %}?evento_id={{ sesion.evento.pk }}" class="btn btn-sm btn-warning">
+            <i class="bi bi-camera me-1"></i>Subir foto
+          </a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# Semáforo general #}
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-traffic-light me-2"></i>Estado General
+      </div>
+      <div class="card-body text-center d-flex flex-column justify-content-center">
+        {% with verdes=0 amarillos=0 rojos=0 %}
+        {% for item in data_candidatos %}
+          {% if item.semaforo == 'verde' %}
+          {% elif item.semaforo == 'amarillo' %}
+          {% elif item.semaforo == 'rojo' %}
+          {% endif %}
+        {% endfor %}
+        {% endwith %}
+        <div class="fs-1 mb-2">
+          {% for item in data_candidatos %}
+          {% if item.semaforo == 'rojo' %}🔴{% endif %}
+          {% endfor %}
+          {% for item in data_candidatos %}
+          {% if item.semaforo == 'amarillo' %}🟡{% endif %}
+          {% endfor %}
+          {% for item in data_candidatos %}
+          {% if item.semaforo == 'verde' %}🟢{% endif %}
+          {% endfor %}
+        </div>
+        <div class="small text-muted">
+          <div>🟢 &lt; 10% variación</div>
+          <div>🟡 10–25% variación</div>
+          <div>🔴 &gt; 25% variación</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Tabla comparativa candidatos #}
+<div class="card border-0 shadow-sm mt-4">
+  <div class="card-header fw-semibold">
+    <i class="bi bi-person-check me-2"></i>Comparativo por Candidato — Encuesta vs Real
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle">
+        <thead class="table-dark">
+          <tr>
+            <th>Candidato</th>
+            <th class="text-center">Encuestados</th>
+            <th class="text-center">Votos Reales</th>
+            <th class="text-center">Diferencia</th>
+            <th class="text-center">Variación</th>
+            <th class="text-center">Semáforo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in data_candidatos %}
+          <tr>
+            <td>
+              <div class="fw-semibold">{{ item.resultado.candidato.nombre_completo }}</div>
+              <span class="badge small" style="background:{{ item.resultado.candidato.partido.color|default:'#6c757d' }}">
+                {{ item.resultado.candidato.partido.sigla }}
+              </span>
+            </td>
+            <td class="text-center">
+              <span class="badge bg-info text-dark fs-6">{{ item.encuestados }}</span>
+            </td>
+            <td class="text-center">
+              <span class="badge bg-primary fs-6">{{ item.resultado.votos_reales }}</span>
+            </td>
+            <td class="text-center fw-bold {% if item.diferencia > 0 %}text-success{% elif item.diferencia < 0 %}text-danger{% endif %}">
+              {% if item.diferencia >= 0 %}+{% endif %}{{ item.diferencia }}
+            </td>
+            <td class="text-center">
+              {% if item.variacion_pct is not None %}
+              <span class="badge {% if item.semaforo == 'verde' %}bg-success{% elif item.semaforo == 'amarillo' %}bg-warning text-dark{% elif item.semaforo == 'rojo' %}bg-danger{% else %}bg-secondary{% endif %}">
+                {% if item.variacion_pct >= 0 %}+{% endif %}{{ item.variacion_pct }}%
+              </span>
+              {% else %}
+              <span class="badge bg-secondary">Sin encuestas</span>
+              {% endif %}
+            </td>
+            <td class="text-center fs-5">
+              {% if item.semaforo == 'verde' %}🟢
+              {% elif item.semaforo == 'amarillo' %}🟡
+              {% elif item.semaforo == 'rojo' %}🔴
+              {% else %}⚫{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,166 @@
+{% extends 'votacion/base.html' %}
+{% block title %}Testigo Electoral{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Testigo Electoral</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="fw-bold mb-0"><i class="bi bi-shield-check text-primary me-2"></i>Testigo Electoral</h4>
+  <a href="{% url 'testigo_dashboard' %}" class="btn btn-primary">
+    <i class="bi bi-bar-chart-line me-1"></i>Dashboard Comparativo
+  </a>
+</div>
+
+{# Selector de evento #}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-md-5">
+        <label class="form-label fw-semibold">Evento Electoral</label>
+        <select name="evento_id" class="form-select" onchange="this.form.submit()">
+          {% for ev in eventos %}
+          <option value="{{ ev.pk }}" {% if evento_sel.pk == ev.pk %}selected{% endif %}>{{ ev.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if evento_sel %}
+
+{# Buscar mesa para ingresar resultados #}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-primary text-white fw-semibold">
+    <i class="bi bi-search me-2"></i>Ingresar Resultados de una Mesa
+  </div>
+  <div class="card-body">
+    <form method="get" action="#" id="buscarMesaForm" class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label">Puesto de Votación</label>
+        <select id="filtroPuesto" class="form-select">
+          <option value="">— Todos los puestos —</option>
+          {% for sesion in sesiones %}
+          <option value="{{ sesion.mesa.puesto.pk }}">{{ sesion.mesa.puesto.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Número de Mesa</label>
+        <input type="number" id="filtroMesa" class="form-control" placeholder="Ej: 1, 2, 3…">
+      </div>
+      <div class="col-md-3">
+        <a href="{% url 'testigo_inicio' %}?evento_id={{ evento_sel.pk }}" class="btn btn-outline-secondary">
+          <i class="bi bi-arrow-clockwise me-1"></i>Recargar
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# Lista de sesiones/mesas #}
+<div class="card border-0 shadow-sm">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span class="fw-semibold"><i class="bi bi-table me-2"></i>Mesas con Escrutinio</span>
+    <span class="badge bg-secondary">{{ sesiones|length }} registros</span>
+  </div>
+  <div class="card-body p-0">
+    {% if sesiones %}
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Puesto</th>
+            <th>Mesa</th>
+            <th>Estado</th>
+            <th>Testigo</th>
+            <th>Total Votos</th>
+            <th>Última actualización</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sesion in sesiones %}
+          <tr>
+            <td>
+              <div class="fw-semibold small">{{ sesion.mesa.puesto.nombre }}</div>
+              <div class="text-muted" style="font-size:.8rem">{{ sesion.mesa.puesto.municipio.nombre }}</div>
+            </td>
+            <td><span class="badge bg-primary">Mesa {{ sesion.mesa.numero }}</span></td>
+            <td>
+              {% if sesion.estado == 'CERRADA' %}
+              <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Cerrada</span>
+              {% else %}
+              <span class="badge bg-warning text-dark"><i class="bi bi-pencil me-1"></i>Borrador</span>
+              {% endif %}
+            </td>
+            <td class="small">{{ sesion.testigo.get_full_name|default:sesion.testigo.username|default:"—" }}</td>
+            <td class="text-center">{{ sesion.total_votos_mesa }}</td>
+            <td class="small text-muted">{{ sesion.fecha_apertura|date:"d/m/Y H:i" }}</td>
+            <td>
+              <div class="d-flex gap-1">
+                <a href="{% url 'testigo_detalle_mesa' sesion.pk %}" class="btn btn-sm btn-outline-primary" title="Ver detalle">
+                  <i class="bi bi-eye"></i>
+                </a>
+                {% if sesion.estado == 'BORRADOR' %}
+                <a href="{% url 'testigo_ingresar' sesion.mesa.pk %}?evento_id={{ evento_sel.pk }}" class="btn btn-sm btn-warning" title="Editar">
+                  <i class="bi bi-pencil"></i>
+                </a>
+                {% else %}
+                <form method="post" action="{% url 'testigo_reabrir_mesa' sesion.pk %}" style="display:inline">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-secondary" title="Reabrir" onclick="return confirm('¿Reabrir esta acta?')">
+                    <i class="bi bi-unlock"></i>
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-inbox" style="font-size:2.5rem;"></i>
+      <p class="mt-2">No hay escrutinios registrados para este evento.<br>
+      Para ingresar resultados, busca la mesa directamente en <a href="{% url 'mesa_lista' %}">lista de mesas</a>.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{# Acceso rápido para nueva mesa #}
+<div class="card border-0 shadow-sm mt-4">
+  <div class="card-header bg-success text-white fw-semibold">
+    <i class="bi bi-plus-circle me-2"></i>Registrar nueva mesa
+  </div>
+  <div class="card-body">
+    <p class="text-muted small mb-3">Si tu mesa no aparece en la lista, busca su número aquí:</p>
+    <div class="row g-2">
+      <div class="col-md-4">
+        <input type="number" id="nuevaMesaId" class="form-control" placeholder="ID de la mesa">
+      </div>
+      <div class="col-md-3">
+        <button class="btn btn-success w-100" onclick="irAMesa()">
+          <i class="bi bi-arrow-right me-1"></i>Ingresar resultados
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function irAMesa() {
+  const id = document.getElementById('nuevaMesaId').value;
+  if (!id) { alert('Escribe el ID de la mesa'); return; }
+  window.location = `/testigo/mesa/${id}/ingresar/?evento_id={{ evento_sel.pk }}`;
+}
+</script>
+{% endblock %}

@@ -224,3 +224,99 @@ class Encuesta(models.Model):
 
     def __str__(self):
         return f'{self.votante.nombre_completo} → {self.candidato.nombre_completo} ({self.evento.nombre})'
+
+
+# ──────────────────────────────────────────────
+# ESCRUTINIO — TESTIGO ELECTORAL
+# ──────────────────────────────────────────────
+
+class SesionEscrutinio(models.Model):
+    """
+    Una sesión por mesa + evento. El testigo abre la sesión, ingresa
+    los resultados reales y sube la foto del E-14. Puede quedar en
+    BORRADOR y cerrarse después.
+    """
+    ESTADO_BORRADOR = 'BORRADOR'
+    ESTADO_CERRADA  = 'CERRADA'
+    ESTADOS = [
+        (ESTADO_BORRADOR, 'Borrador'),
+        (ESTADO_CERRADA,  'Cerrada'),
+    ]
+
+    mesa   = models.ForeignKey(MesaVotacion,   on_delete=models.CASCADE, related_name='sesiones_escrutinio')
+    evento = models.ForeignKey(EventoElectoral, on_delete=models.CASCADE, related_name='sesiones_escrutinio')
+    testigo = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='sesiones_testigo')
+
+    estado          = models.CharField(max_length=10, choices=ESTADOS, default=ESTADO_BORRADOR)
+    total_votos_mesa = models.IntegerField(default=0, help_text='Total de votos válidos escrutados en la mesa')
+    votos_blancos   = models.IntegerField(default=0)
+    votos_nulos     = models.IntegerField(default=0)
+
+    # Foto del E-14 (formulario oficial de resultados)
+    foto_e14        = models.ImageField(upload_to='e14/', null=True, blank=True,
+                                        verbose_name='Foto del E-14')
+    observacion     = models.TextField(blank=True)
+
+    fecha_apertura  = models.DateTimeField(auto_now_add=True)
+    fecha_cierre    = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ('mesa', 'evento')
+        ordering = ['-fecha_apertura']
+        verbose_name = 'Sesión de Escrutinio'
+        verbose_name_plural = 'Sesiones de Escrutinio'
+
+    def __str__(self):
+        return f'Escrutinio Mesa {self.mesa.numero} — {self.evento.nombre} [{self.estado}]'
+
+    @property
+    def votos_candidatos(self):
+        return self.resultados.aggregate(total=models.Sum('votos_reales'))['total'] or 0
+
+    @property
+    def porcentaje_completado(self):
+        """Qué % del total_votos_mesa está distribuido en candidatos."""
+        if not self.total_votos_mesa:
+            return 0
+        return round(self.votos_candidatos / self.total_votos_mesa * 100, 1)
+
+
+class ResultadoMesa(models.Model):
+    """
+    Votos reales por candidato en una mesa específica.
+    Un registro por mesa + evento + candidato.
+    """
+    sesion    = models.ForeignKey(SesionEscrutinio, on_delete=models.CASCADE, related_name='resultados')
+    candidato = models.ForeignKey(Candidato, on_delete=models.CASCADE, related_name='resultados_mesa')
+    votos_reales = models.IntegerField(default=0)
+    registrado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('sesion', 'candidato')
+        ordering = ['-votos_reales']
+        verbose_name = 'Resultado por Mesa'
+        verbose_name_plural = 'Resultados por Mesa'
+
+    def __str__(self):
+        return f'{self.candidato.nombre_completo}: {self.votos_reales} votos — {self.sesion}'
+
+    @property
+    def votos_encuestados(self):
+        """Cuántas encuestas apuntaban a este candidato en esta mesa."""
+        return Encuesta.objects.filter(
+            evento=self.sesion.evento,
+            candidato=self.candidato,
+            votante__mesa=self.sesion.mesa
+        ).count()
+
+    @property
+    def diferencia(self):
+        return self.votos_reales - self.votos_encuestados
+
+    @property
+    def variacion_pct(self):
+        enc = self.votos_encuestados
+        if enc == 0:
+            return None
+        return round((self.votos_reales - enc) / enc * 100, 1)

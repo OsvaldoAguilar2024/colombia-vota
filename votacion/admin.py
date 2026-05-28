@@ -65,3 +65,17 @@ class EncuestaAdmin(admin.ModelAdmin):
     list_filter = ['evento', 'candidato__partido', 'encuestador']
     search_fields = ['votante__cedula', 'votante__nombres', 'votante__apellidos']
     readonly_fields = ['fecha', 'actualizado_en']
+
+# Módulo Testigo Electoral
+from .models import SesionEscrutinio, ResultadoMesa
+
+@admin.register(SesionEscrutinio)
+class SesionEscrutinioAdmin(admin.ModelAdmin):
+    list_display = ['mesa', 'evento', 'estado', 'testigo', 'total_votos_mesa', 'fecha_apertura']
+    list_filter  = ['estado', 'evento']
+    search_fields = ['mesa__numero', 'mesa__puesto__nombre']
+
+@admin.register(ResultadoMesa)
+class ResultadoMesaAdmin(admin.ModelAdmin):
+    list_display = ['sesion', 'candidato', 'votos_reales']
+    list_filter  = ['sesion__evento', 'candidato']

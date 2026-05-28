@@ -2,10 +2,12 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Sum
+from django.db import models
 from django.core.paginator import Paginator
 from .models import (Votante, Candidato, EventoElectoral, PartidoPolitico,
-                     Departamento, Municipio, PuestoVotacion, MesaVotacion, Encuesta)
+                     Departamento, Municipio, PuestoVotacion, MesaVotacion, Encuesta,
+                     SesionEscrutinio, ResultadoMesa)
 from .forms import (VotanteForm, CandidatoForm, EventoElectoralForm,
                     PartidoForm, PuestoVotacionForm, MesaVotacionForm, VotanteBuscarForm)
 
@@ -723,3 +725,225 @@ def mapa_calor_votantes(request):
         'candidato_sel':  candidato_sel,
         'total_votantes_geo': Votante.objects.filter(latitud__isnull=False).count(),
     })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MÓDULO TESTIGO ELECTORAL — ESCRUTINIO
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@login_required
+def testigo_inicio(request):
+    """Seleccionar evento y ver mesas asignadas con su estado."""
+    eventos = EventoElectoral.objects.filter(activo=True).order_by('-fecha')
+    evento_id = request.GET.get('evento_id') or (eventos.first().pk if eventos.exists() else None)
+    evento_sel = get_object_or_404(EventoElectoral, pk=evento_id) if evento_id else None
+
+    sesiones = []
+    if evento_sel:
+        # Mesas donde hay sesión ya creada por este testigo o sin testigo asignado
+        sesiones_qs = SesionEscrutinio.objects.filter(
+            evento=evento_sel
+        ).select_related('mesa', 'mesa__puesto', 'mesa__puesto__municipio', 'testigo')
+
+        # Stats globales del evento
+        total_mesas = MesaVotacion.objects.filter(
+            sesiones_escrutinio__evento=evento_sel
+        ).count()
+
+        sesiones = list(sesiones_qs)
+
+    return render(request, 'votacion/testigo/inicio.html', {
+        'eventos': eventos,
+        'evento_sel': evento_sel,
+        'sesiones': sesiones,
+    })
+
+
+@login_required
+def testigo_ingresar(request, mesa_id):
+    """Ingresar o editar resultados reales de una mesa."""
+    mesa = get_object_or_404(MesaVotacion, pk=mesa_id)
+
+    eventos = EventoElectoral.objects.filter(activo=True)
+    evento_id = request.GET.get('evento_id') or request.POST.get('evento_id')
+    evento = get_object_or_404(EventoElectoral, pk=evento_id) if evento_id else eventos.first()
+
+    if not evento:
+        messages.error(request, 'No hay eventos electorales activos.')
+        return redirect('testigo_inicio')
+
+    # Obtener o crear sesión
+    sesion, creada = SesionEscrutinio.objects.get_or_create(
+        mesa=mesa, evento=evento,
+        defaults={'testigo': request.user}
+    )
+
+    # Candidatos del evento
+    candidatos = Candidato.objects.filter(evento=evento, activo=True).select_related('partido')
+
+    # Asegurar que exista un ResultadoMesa por cada candidato
+    for cand in candidatos:
+        ResultadoMesa.objects.get_or_create(
+            sesion=sesion, candidato=cand,
+            defaults={'registrado_por': request.user}
+        )
+
+    # Votos encuestados por candidato en esta mesa (para comparación)
+    encuestas_mesa = {}
+    for cand in candidatos:
+        encuestas_mesa[cand.pk] = Encuesta.objects.filter(
+            evento=evento, candidato=cand, votante__mesa=mesa
+        ).count()
+
+    if request.method == 'POST':
+        accion = request.POST.get('accion', 'borrador')
+
+        # Guardar datos generales
+        sesion.total_votos_mesa = int(request.POST.get('total_votos_mesa') or 0)
+        sesion.votos_blancos    = int(request.POST.get('votos_blancos') or 0)
+        sesion.votos_nulos      = int(request.POST.get('votos_nulos') or 0)
+        sesion.observacion      = request.POST.get('observacion', '')
+        sesion.testigo          = request.user
+
+        # Foto E-14
+        if 'foto_e14' in request.FILES:
+            sesion.foto_e14 = request.FILES['foto_e14']
+
+        if accion == 'cerrar':
+            from django.utils import timezone
+            sesion.estado       = SesionEscrutinio.ESTADO_CERRADA
+            sesion.fecha_cierre = timezone.now()
+        else:
+            sesion.estado = SesionEscrutinio.ESTADO_BORRADOR
+
+        sesion.save()
+
+        # Guardar votos por candidato
+        for cand in candidatos:
+            votos = int(request.POST.get(f'votos_{cand.pk}') or 0)
+            ResultadoMesa.objects.filter(sesion=sesion, candidato=cand).update(
+                votos_reales=votos, registrado_por=request.user
+            )
+
+        if accion == 'cerrar':
+            messages.success(request, f'✅ Acta cerrada para Mesa {mesa.numero}.')
+            return redirect('testigo_inicio')
+        else:
+            messages.success(request, f'💾 Borrador guardado para Mesa {mesa.numero}.')
+
+    resultados = {r.candidato_id: r for r in sesion.resultados.select_related('candidato')}
+
+    return render(request, 'votacion/testigo/ingresar_resultado.html', {
+        'mesa': mesa,
+        'evento': evento,
+        'sesion': sesion,
+        'candidatos': candidatos,
+        'resultados': resultados,
+        'encuestas_mesa': encuestas_mesa,
+        'eventos': eventos,
+    })
+
+
+@login_required
+def testigo_dashboard(request):
+    """Dashboard comparativo: encuesta vs votos reales. Drill-down completo."""
+    eventos = EventoElectoral.objects.all().order_by('-fecha')
+    evento_id = request.GET.get('evento_id') or (eventos.filter(activo=True).first().pk if eventos.filter(activo=True).exists() else None)
+    evento_sel = get_object_or_404(EventoElectoral, pk=evento_id) if evento_id else None
+
+    data = []
+    resumen = {}
+
+    if evento_sel:
+        candidatos = Candidato.objects.filter(evento=evento_sel, activo=True).select_related('partido')
+
+        total_mesas = MesaVotacion.objects.count()
+        mesas_reportadas = SesionEscrutinio.objects.filter(
+            evento=evento_sel, estado=SesionEscrutinio.ESTADO_CERRADA
+        ).count()
+        mesas_borrador = SesionEscrutinio.objects.filter(
+            evento=evento_sel, estado=SesionEscrutinio.ESTADO_BORRADOR
+        ).count()
+
+        resumen = {
+            'total_mesas': total_mesas,
+            'mesas_reportadas': mesas_reportadas,
+            'mesas_borrador': mesas_borrador,
+            'mesas_pendientes': total_mesas - mesas_reportadas - mesas_borrador,
+            'pct_reporte': round(mesas_reportadas / total_mesas * 100, 1) if total_mesas else 0,
+        }
+
+        for cand in candidatos:
+            enc = Encuesta.objects.filter(evento=evento_sel, candidato=cand).count()
+            real = ResultadoMesa.objects.filter(
+                sesion__evento=evento_sel, candidato=cand
+            ).aggregate(total=models.Sum('votos_reales'))['total'] or 0
+            dif = real - enc
+            pct = round(dif / enc * 100, 1) if enc else None
+            data.append({
+                'candidato': cand,
+                'encuestados': enc,
+                'reales': real,
+                'diferencia': dif,
+                'variacion_pct': pct,
+                'semaforo': 'verde' if pct is not None and abs(pct) < 10
+                            else 'amarillo' if pct is not None and abs(pct) < 25
+                            else 'rojo',
+            })
+
+        data.sort(key=lambda x: x['reales'], reverse=True)
+
+    return render(request, 'votacion/testigo/dashboard.html', {
+        'eventos': eventos,
+        'evento_sel': evento_sel,
+        'data': data,
+        'resumen': resumen,
+    })
+
+
+@login_required
+def testigo_detalle_mesa(request, sesion_id):
+    """Detalle completo de una mesa: E-14, votos reales vs encuestados por candidato."""
+    sesion = get_object_or_404(
+        SesionEscrutinio.objects.select_related(
+            'mesa', 'mesa__puesto', 'mesa__puesto__municipio',
+            'mesa__puesto__municipio__departamento', 'evento', 'testigo'
+        ), pk=sesion_id
+    )
+
+    resultados = sesion.resultados.select_related('candidato', 'candidato__partido')
+    data_candidatos = []
+    for r in resultados:
+        enc = Encuesta.objects.filter(
+            evento=sesion.evento, candidato=r.candidato, votante__mesa=sesion.mesa
+        ).count()
+        dif = r.votos_reales - enc
+        pct = round(dif / enc * 100, 1) if enc else None
+        data_candidatos.append({
+            'resultado': r,
+            'encuestados': enc,
+            'diferencia': dif,
+            'variacion_pct': pct,
+            'semaforo': 'verde' if pct is not None and abs(pct) < 10
+                        else 'amarillo' if pct is not None and abs(pct) < 25
+                        else 'rojo' if pct is not None else 'gris',
+        })
+
+    data_candidatos.sort(key=lambda x: x['resultado'].votos_reales, reverse=True)
+
+    return render(request, 'votacion/testigo/detalle_mesa.html', {
+        'sesion': sesion,
+        'data_candidatos': data_candidatos,
+    })
+
+
+@login_required
+def testigo_reabrir_mesa(request, sesion_id):
+    """Permite reabrir una sesión cerrada para corregir datos."""
+    sesion = get_object_or_404(SesionEscrutinio, pk=sesion_id)
+    if request.method == 'POST':
+        sesion.estado = SesionEscrutinio.ESTADO_BORRADOR
+        sesion.fecha_cierre = None
+        sesion.save()
+        messages.info(request, f'Mesa {sesion.mesa.numero} reabierta para edición.')
+    return redirect('testigo_ingresar', mesa_id=sesion.mesa.pk)

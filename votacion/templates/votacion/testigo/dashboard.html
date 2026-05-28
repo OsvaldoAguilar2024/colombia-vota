@@ -1,0 +1,209 @@
+{% extends 'votacion/base.html' %}
+{% block title %}Dashboard Comparativo — Escrutinio{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'testigo_inicio' %}">Testigo Electoral</a></li>
+<li class="breadcrumb-item active">Dashboard Comparativo</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="fw-bold mb-0"><i class="bi bi-bar-chart-line text-primary me-2"></i>Dashboard Comparativo</h4>
+  <a href="{% url 'testigo_inicio' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Volver
+  </a>
+</div>
+
+{# Selector evento #}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-auto"><label class="form-label mb-0 fw-semibold">Evento:</label></div>
+      <div class="col-md-5">
+        <select name="evento_id" class="form-select form-select-sm" onchange="this.form.submit()">
+          {% for ev in eventos %}
+          <option value="{{ ev.pk }}" {% if evento_sel.pk == ev.pk %}selected{% endif %}>{{ ev.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if evento_sel %}
+
+{# KPIs de progreso #}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center h-100">
+      <div class="card-body">
+        <div class="fs-1 fw-bold text-primary">{{ resumen.mesas_reportadas }}</div>
+        <div class="small text-muted">Mesas cerradas</div>
+        <div class="progress mt-2" style="height:6px">
+          <div class="progress-bar bg-success" style="width:{{ resumen.pct_reporte }}%"></div>
+        </div>
+        <div class="small text-success mt-1">{{ resumen.pct_reporte }}% completado</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center h-100">
+      <div class="card-body">
+        <div class="fs-1 fw-bold text-warning">{{ resumen.mesas_borrador }}</div>
+        <div class="small text-muted">En borrador</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center h-100">
+      <div class="card-body">
+        <div class="fs-1 fw-bold text-secondary">{{ resumen.mesas_pendientes }}</div>
+        <div class="small text-muted">Sin reportar</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center h-100">
+      <div class="card-body">
+        <div class="fs-1 fw-bold text-dark">{{ resumen.total_mesas }}</div>
+        <div class="small text-muted">Total mesas</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if data %}
+{# Tabla comparativa principal #}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header fw-semibold">
+    <i class="bi bi-table me-2"></i>Encuesta vs Resultado Real — Por Candidato
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle">
+        <thead class="table-dark">
+          <tr>
+            <th style="width:30%">Candidato</th>
+            <th class="text-center">Encuestados</th>
+            <th class="text-center">Votos Reales</th>
+            <th class="text-center">Diferencia</th>
+            <th class="text-center">Variación %</th>
+            <th class="text-center">Semáforo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in data %}
+          <tr>
+            <td>
+              <div class="fw-semibold">{{ item.candidato.nombre_completo }}</div>
+              <div class="small">
+                <span class="badge" style="background:{{ item.candidato.partido.color|default:'#6c757d' }}">
+                  {{ item.candidato.partido.sigla }}
+                </span>
+              </div>
+            </td>
+            <td class="text-center">
+              <span class="badge bg-info text-dark fs-6">{{ item.encuestados }}</span>
+            </td>
+            <td class="text-center">
+              <span class="badge bg-primary fs-6">{{ item.reales }}</span>
+            </td>
+            <td class="text-center fw-bold {% if item.diferencia > 0 %}text-success{% elif item.diferencia < 0 %}text-danger{% endif %}">
+              {{ item.diferencia|stringformat:"+d" }}
+            </td>
+            <td class="text-center">
+              {% if item.variacion_pct is not None %}
+                {% if item.variacion_pct >= 0 %}
+                <span class="badge {% if item.semaforo == 'verde' %}bg-success{% elif item.semaforo == 'amarillo' %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                  +{{ item.variacion_pct }}%
+                </span>
+                {% else %}
+                <span class="badge {% if item.semaforo == 'verde' %}bg-success{% elif item.semaforo == 'amarillo' %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                  {{ item.variacion_pct }}%
+                </span>
+                {% endif %}
+              {% else %}
+                <span class="badge bg-secondary">Sin datos</span>
+              {% endif %}
+            </td>
+            <td class="text-center fs-5">
+              {% if item.semaforo == 'verde' %}🟢
+              {% elif item.semaforo == 'amarillo' %}🟡
+              {% elif item.semaforo == 'rojo' %}🔴
+              {% else %}⚫{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# Gráfico de barras comparativo #}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header fw-semibold">
+    <i class="bi bi-bar-chart me-2"></i>Comparativo Visual
+  </div>
+  <div class="card-body">
+    {% for item in data %}
+    <div class="mb-4">
+      <div class="d-flex justify-content-between mb-1">
+        <span class="fw-semibold">{{ item.candidato.nombre_completo }}</span>
+        <span class="small text-muted">
+          Enc: {{ item.encuestados }} · Real: {{ item.reales }}
+          {% if item.diferencia >= 0 %}
+          · <span class="text-success fw-bold">+{{ item.diferencia }}</span>
+          {% else %}
+          · <span class="text-danger fw-bold">{{ item.diferencia }}</span>
+          {% endif %}
+        </span>
+      </div>
+      {# Barra encuestados (azul) #}
+      {% if item.encuestados > 0 %}
+      <div class="progress mb-1" style="height:14px;" title="Encuestados: {{ item.encuestados }}">
+        <div class="progress-bar bg-info" role="progressbar"
+          style="width:{% widthratio item.encuestados data.0.encuestados 100 %}%">
+        </div>
+      </div>
+      {% endif %}
+      {# Barra votos reales (verde/rojo) #}
+      {% if item.reales > 0 %}
+      <div class="progress" style="height:14px;" title="Votos reales: {{ item.reales }}">
+        <div class="progress-bar {% if item.reales >= item.encuestados %}bg-success{% else %}bg-danger{% endif %}"
+          role="progressbar"
+          style="width:{% widthratio item.reales data.0.encuestados 100 %}%">
+        </div>
+      </div>
+      {% endif %}
+      <div class="d-flex gap-3 mt-1" style="font-size:.75rem;">
+        <span><span class="badge bg-info text-dark me-1">■</span>Encuestados</span>
+        <span><span class="badge {% if item.reales >= item.encuestados %}bg-success{% else %}bg-danger{% endif %} me-1">■</span>Votos Reales</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{# Leyenda semáforo #}
+<div class="card border-0 shadow-sm">
+  <div class="card-body py-2">
+    <div class="d-flex gap-4 flex-wrap align-items-center">
+      <span class="fw-semibold small">Semáforo:</span>
+      <span class="small">🟢 Variación &lt; 10%</span>
+      <span class="small">🟡 Variación 10–25%</span>
+      <span class="small">🔴 Variación &gt; 25%</span>
+      <span class="small">⚫ Sin datos reales</span>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-bar-chart" style="font-size:3rem;"></i>
+  <p class="mt-3">No hay resultados registrados para este evento.<br>
+  Los testigos deben ingresar los datos del E-14 desde <a href="{% url 'testigo_inicio' %}?evento_id={{ evento_sel.pk }}">Testigo Electoral</a>.</p>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}
