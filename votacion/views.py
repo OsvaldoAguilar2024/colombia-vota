@@ -743,9 +743,10 @@ def testigo_inicio(request):
     puestos    = []
 
     if evento_sel:
-        # Todas las mesas que tienen al menos 1 encuesta en este evento
+        # Mesas que tienen al menos 1 encuesta en este evento
+        # Votante.mesa no tiene related_name, Django usa 'votante_set'
         mesas_con_encuesta = MesaVotacion.objects.filter(
-            votantes__encuestas__evento=evento_sel
+            votante__encuestas__evento=evento_sel
         ).distinct().select_related(
             'puesto', 'puesto__municipio', 'puesto__municipio__departamento'
         ).order_by('puesto__municipio__nombre', 'puesto__nombre', 'numero')
@@ -757,7 +758,6 @@ def testigo_inicio(request):
         }
 
         # Encuestas por mesa indexadas
-        from django.db.models import Count
         enc_por_mesa = dict(
             Encuesta.objects.filter(evento=evento_sel)
             .values('votante__mesa_id')
@@ -775,7 +775,7 @@ def testigo_inicio(request):
             })
 
         puestos = MesaVotacion.objects.filter(
-            votantes__encuestas__evento=evento_sel
+            votante__encuestas__evento=evento_sel
         ).values_list(
             'puesto__pk', 'puesto__nombre', 'puesto__municipio__nombre'
         ).distinct().order_by('puesto__municipio__nombre', 'puesto__nombre')
