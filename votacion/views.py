@@ -820,21 +820,29 @@ def testigo_ingresar(request, mesa_id):
     )
 
     # Candidatos del evento
-    candidatos = Candidato.objects.filter(evento=evento, activo=True).select_related('partido')
+    candidatos_qs = Candidato.objects.filter(evento=evento, activo=True).select_related('partido')
 
     # Asegurar que exista un ResultadoMesa por cada candidato
-    for cand in candidatos:
+    for cand in candidatos_qs:
         ResultadoMesa.objects.get_or_create(
             sesion=sesion, candidato=cand,
             defaults={'registrado_por': request.user}
         )
 
-    # Votos encuestados por candidato en esta mesa (para comparación)
-    encuestas_mesa = {}
-    for cand in candidatos:
-        encuestas_mesa[cand.pk] = Encuesta.objects.filter(
+    # Construir lista enriquecida: candidato + votos_encuestados + votos_reales
+    resultados_idx = {r.candidato_id: r for r in sesion.resultados.all()}
+    candidatos = []
+    for cand in candidatos_qs:
+        enc = Encuesta.objects.filter(
             evento=evento, candidato=cand, votante__mesa=mesa
         ).count()
+        res = resultados_idx.get(cand.pk)
+        candidatos.append({
+            'candidato':  cand,
+            'encuestados': enc,
+            'votos_reales': res.votos_reales if res else 0,
+            'resultado_pk': res.pk if res else None,
+        })
 
     if request.method == 'POST':
         accion = request.POST.get('accion', 'borrador')
@@ -860,7 +868,8 @@ def testigo_ingresar(request, mesa_id):
         sesion.save()
 
         # Guardar votos por candidato
-        for cand in candidatos:
+        for item in candidatos:
+            cand = item['candidato']
             votos = int(request.POST.get(f'votos_{cand.pk}') or 0)
             ResultadoMesa.objects.filter(sesion=sesion, candidato=cand).update(
                 votos_reales=votos, registrado_por=request.user
@@ -872,15 +881,11 @@ def testigo_ingresar(request, mesa_id):
         else:
             messages.success(request, f'💾 Borrador guardado para Mesa {mesa.numero}.')
 
-    resultados = {r.candidato_id: r for r in sesion.resultados.select_related('candidato')}
-
     return render(request, 'votacion/testigo/ingresar_resultado.html', {
         'mesa': mesa,
         'evento': evento,
         'sesion': sesion,
         'candidatos': candidatos,
-        'resultados': resultados,
-        'encuestas_mesa': encuestas_mesa,
         'eventos': eventos,
     })
 

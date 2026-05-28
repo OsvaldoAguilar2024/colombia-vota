@@ -103,41 +103,35 @@
                 </tr>
               </thead>
               <tbody>
-                {% for cand in candidatos %}
-                {% with r=resultados|default_if_none:None enc=encuestas_mesa|default_if_none:0 %}
-                {% with votos_enc=encuestas_mesa|default_if_none:0 %}
-                <tr id="fila_{{ cand.pk }}">
+                {% for item in candidatos %}
+                <tr id="fila_{{ item.candidato.pk }}">
                   <td>
-                    <div class="fw-semibold">{{ cand.nombre_completo }}</div>
+                    <div class="fw-semibold">{{ item.candidato.nombre_completo }}</div>
                     <div class="small text-muted">
-                      <span class="badge" style="background:{{ cand.partido.color|default:'#6c757d' }}">{{ cand.partido.sigla }}</span>
-                      {% if cand.numero_lista %} · Lista {{ cand.numero_lista }}{% endif %}
+                      <span class="badge" style="background:{{ item.candidato.partido.color|default:'#6c757d' }}">{{ item.candidato.partido.sigla }}</span>
+                      {% if item.candidato.numero_lista %} · Lista {{ item.candidato.numero_lista }}{% endif %}
                     </div>
                   </td>
                   <td class="text-center">
-                    <span class="badge bg-info text-dark fs-6 enc_{{ cand.pk }}">
-                      {{ encuestas_mesa|default_if_none:0 }}
+                    <span class="badge bg-info text-dark fs-6 enc_{{ item.candidato.pk }}">
+                      {{ item.encuestados }}
                     </span>
                   </td>
                   <td class="text-center">
-                    {% with resultado=resultados|default_if_none:None %}
                     <input type="number"
-                      name="votos_{{ cand.pk }}"
-                      id="votos_{{ cand.pk }}"
+                      name="votos_{{ item.candidato.pk }}"
+                      id="votos_{{ item.candidato.pk }}"
                       class="form-control text-center fw-bold votos-real"
-                      data-cand="{{ cand.pk }}"
-                      data-enc="{{ encuestas_mesa|default_if_none:0 }}"
-                      value="{% for pk, res in resultados.items %}{% if pk == cand.pk %}{{ res.votos_reales }}{% endif %}{% endfor %}"
+                      data-cand="{{ item.candidato.pk }}"
+                      data-enc="{{ item.encuestados }}"
+                      value="{{ item.votos_reales }}"
                       min="0"
                       {% if sesion.estado == 'CERRADA' %}readonly{% endif %}
                       style="max-width:90px; margin:auto;">
-                    {% endwith %}
                   </td>
-                  <td class="text-center fw-bold dif_{{ cand.pk }}" id="dif_{{ cand.pk }}">—</td>
-                  <td class="text-center" id="pct_{{ cand.pk }}">—</td>
+                  <td class="text-center fw-bold" id="dif_{{ item.candidato.pk }}">—</td>
+                  <td class="text-center" id="pct_{{ item.candidato.pk }}">—</td>
                 </tr>
-                {% endwith %}
-                {% endwith %}
                 {% endfor %}
               </tbody>
               <tfoot class="table-secondary">
@@ -228,13 +222,6 @@
 
 {% block extra_js %}
 <script>
-// Datos de encuestas por candidato
-const encuestados = {
-  {% for cand in candidatos %}
-  {{ cand.pk }}: {{ encuestas_mesa|default_if_none:0 }},
-  {% endfor %}
-};
-
 // Recalcular diferencias al cambiar votos
 function recalcular() {
   let totalEnc = 0, totalReal = 0, totalDif = 0;
@@ -278,17 +265,10 @@ function recalcular() {
   tdif.className = 'text-center fw-bold ' + (totalDif > 0 ? 'text-success' : totalDif < 0 ? 'text-danger' : '');
 }
 
-// Asignar datos de encuesta a cada input
+// Encender eventos y calcular al cargar
 document.querySelectorAll('.votos-real').forEach(inp => {
-  const enc = encuestados[inp.dataset.cand] || 0;
-  inp.dataset.enc = enc;
-  // Mostrar enc en la celda
-  const encEl = document.querySelector('.enc_' + inp.dataset.cand);
-  if (encEl) encEl.textContent = enc;
   inp.addEventListener('input', recalcular);
 });
-
-// Calcular al cargar
 recalcular();
 
 // Preview foto E-14
