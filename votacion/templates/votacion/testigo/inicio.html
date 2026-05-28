@@ -14,9 +14,9 @@
 
 {# Selector de evento #}
 <div class="card border-0 shadow-sm mb-4">
-  <div class="card-body">
+  <div class="card-body py-3">
     <form method="get" class="row g-2 align-items-end">
-      <div class="col-md-5">
+      <div class="col-md-6">
         <label class="form-label fw-semibold">Evento Electoral</label>
         <select name="evento_id" class="form-select" onchange="this.form.submit()">
           {% for ev in eventos %}
@@ -30,92 +30,138 @@
 
 {% if evento_sel %}
 
-{# Buscar mesa para ingresar resultados #}
-<div class="card border-0 shadow-sm mb-4">
-  <div class="card-header bg-primary text-white fw-semibold">
-    <i class="bi bi-search me-2"></i>Ingresar Resultados de una Mesa
+{# KPIs #}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold text-primary">{{ total }}</div>
+        <div class="small text-muted">Mesas con encuestas</div>
+      </div>
+    </div>
   </div>
-  <div class="card-body">
-    <form method="get" action="#" id="buscarMesaForm" class="row g-2 align-items-end">
-      <div class="col-md-4">
-        <label class="form-label">Puesto de Votación</label>
-        <select id="filtroPuesto" class="form-select">
-          <option value="">— Todos los puestos —</option>
-          {% for sesion in sesiones %}
-          <option value="{{ sesion.mesa.puesto.pk }}">{{ sesion.mesa.puesto.nombre }}</option>
-          {% endfor %}
-        </select>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold text-success">{{ cerradas }}</div>
+        <div class="small text-muted">Cerradas</div>
       </div>
-      <div class="col-md-3">
-        <label class="form-label">Número de Mesa</label>
-        <input type="number" id="filtroMesa" class="form-control" placeholder="Ej: 1, 2, 3…">
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold text-warning">{{ borradores }}</div>
+        <div class="small text-muted">En borrador</div>
       </div>
-      <div class="col-md-3">
-        <a href="{% url 'testigo_inicio' %}?evento_id={{ evento_sel.pk }}" class="btn btn-outline-secondary">
-          <i class="bi bi-arrow-clockwise me-1"></i>Recargar
-        </a>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold text-secondary">{{ pendientes }}</div>
+        <div class="small text-muted">Sin ingresar</div>
       </div>
-    </form>
+    </div>
   </div>
 </div>
 
-{# Lista de sesiones/mesas #}
+{# Filtros #}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <div class="row g-2 align-items-center">
+      <div class="col-md-4">
+        <select id="filtroPuesto" class="form-select form-select-sm" onchange="filtrarTabla()">
+          <option value="">— Todos los puestos —</option>
+          {% for pk, nombre, municipio in puestos %}
+          <option value="{{ pk }}">{{ municipio }} — {{ nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select id="filtroEstado" class="form-select form-select-sm" onchange="filtrarTabla()">
+          <option value="">Todos los estados</option>
+          <option value="SIN_DATOS">Sin ingresar</option>
+          <option value="BORRADOR">Borrador</option>
+          <option value="CERRADA">Cerrada</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <input type="text" id="filtroMesa" class="form-control form-control-sm"
+          placeholder="Buscar mesa…" oninput="filtrarTabla()">
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Tabla de mesas #}
 <div class="card border-0 shadow-sm">
   <div class="card-header d-flex justify-content-between align-items-center">
-    <span class="fw-semibold"><i class="bi bi-table me-2"></i>Mesas con Escrutinio</span>
-    <span class="badge bg-secondary">{{ sesiones|length }} registros</span>
+    <span class="fw-semibold"><i class="bi bi-table me-2"></i>Mesas del Evento</span>
+    <span class="badge bg-secondary" id="contadorMesas">{{ total }} mesas</span>
   </div>
   <div class="card-body p-0">
-    {% if sesiones %}
+    {% if mesas_data %}
     <div class="table-responsive">
-      <table class="table table-hover mb-0">
+      <table class="table table-hover mb-0 align-middle" id="tablaMesas">
         <thead class="table-light">
           <tr>
-            <th>Puesto</th>
-            <th>Mesa</th>
-            <th>Estado</th>
-            <th>Testigo</th>
-            <th>Total Votos</th>
-            <th>Última actualización</th>
-            <th>Acciones</th>
+            <th>Municipio / Puesto</th>
+            <th class="text-center">Mesa</th>
+            <th class="text-center">Encuestas</th>
+            <th class="text-center">Estado</th>
+            <th class="text-center">Testigo</th>
+            <th class="text-center">Acción</th>
           </tr>
         </thead>
         <tbody>
-          {% for sesion in sesiones %}
-          <tr>
+          {% for item in mesas_data %}
+          <tr data-puesto="{{ item.mesa.puesto.pk }}"
+              data-estado="{{ item.estado }}"
+              data-mesa="{{ item.mesa.numero }}">
             <td>
-              <div class="fw-semibold small">{{ sesion.mesa.puesto.nombre }}</div>
-              <div class="text-muted" style="font-size:.8rem">{{ sesion.mesa.puesto.municipio.nombre }}</div>
+              <div class="fw-semibold small">{{ item.mesa.puesto.nombre }}</div>
+              <div class="text-muted" style="font-size:.8rem">
+                {{ item.mesa.puesto.municipio.nombre }}, {{ item.mesa.puesto.municipio.departamento.nombre }}
+              </div>
             </td>
-            <td><span class="badge bg-primary">Mesa {{ sesion.mesa.numero }}</span></td>
-            <td>
-              {% if sesion.estado == 'CERRADA' %}
-              <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Cerrada</span>
+            <td class="text-center">
+              <span class="badge bg-primary">Mesa {{ item.mesa.numero }}</span>
+            </td>
+            <td class="text-center">
+              <span class="badge bg-info text-dark">{{ item.encuestas }}</span>
+            </td>
+            <td class="text-center">
+              {% if item.estado == 'CERRADA' %}
+                <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Cerrada</span>
+              {% elif item.estado == 'BORRADOR' %}
+                <span class="badge bg-warning text-dark"><i class="bi bi-pencil me-1"></i>Borrador</span>
               {% else %}
-              <span class="badge bg-warning text-dark"><i class="bi bi-pencil me-1"></i>Borrador</span>
+                <span class="badge bg-secondary"><i class="bi bi-dash me-1"></i>Sin ingresar</span>
               {% endif %}
             </td>
-            <td class="small">{{ sesion.testigo.get_full_name|default:sesion.testigo.username|default:"—" }}</td>
-            <td class="text-center">{{ sesion.total_votos_mesa }}</td>
-            <td class="small text-muted">{{ sesion.fecha_apertura|date:"d/m/Y H:i" }}</td>
-            <td>
-              <div class="d-flex gap-1">
-                <a href="{% url 'testigo_detalle_mesa' sesion.pk %}" class="btn btn-sm btn-outline-primary" title="Ver detalle">
-                  <i class="bi bi-eye"></i>
+            <td class="text-center small">
+              {% if item.sesion %}
+                {{ item.sesion.testigo.get_full_name|default:item.sesion.testigo.username|default:"—" }}
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-center">
+              {% if item.estado == 'CERRADA' %}
+                <a href="{% url 'testigo_detalle_mesa' item.sesion.pk %}"
+                   class="btn btn-sm btn-outline-success">
+                  <i class="bi bi-eye me-1"></i>Ver
                 </a>
-                {% if sesion.estado == 'BORRADOR' %}
-                <a href="{% url 'testigo_ingresar' sesion.mesa.pk %}?evento_id={{ evento_sel.pk }}" class="btn btn-sm btn-warning" title="Editar">
-                  <i class="bi bi-pencil"></i>
+              {% elif item.estado == 'BORRADOR' %}
+                <a href="{% url 'testigo_ingresar' item.mesa.pk %}?evento_id={{ evento_sel.pk }}"
+                   class="btn btn-sm btn-warning">
+                  <i class="bi bi-pencil me-1"></i>Continuar
                 </a>
-                {% else %}
-                <form method="post" action="{% url 'testigo_reabrir_mesa' sesion.pk %}" style="display:inline">
-                  {% csrf_token %}
-                  <button type="submit" class="btn btn-sm btn-outline-secondary" title="Reabrir" onclick="return confirm('¿Reabrir esta acta?')">
-                    <i class="bi bi-unlock"></i>
-                  </button>
-                </form>
-                {% endif %}
-              </div>
+              {% else %}
+                <a href="{% url 'testigo_ingresar' item.mesa.pk %}?evento_id={{ evento_sel.pk }}"
+                   class="btn btn-sm btn-primary">
+                  <i class="bi bi-plus me-1"></i>Ingresar
+                </a>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -125,30 +171,11 @@
     {% else %}
     <div class="text-center py-5 text-muted">
       <i class="bi bi-inbox" style="font-size:2.5rem;"></i>
-      <p class="mt-2">No hay escrutinios registrados para este evento.<br>
-      Para ingresar resultados, busca la mesa directamente en <a href="{% url 'mesa_lista' %}">lista de mesas</a>.</p>
+      <p class="mt-3">No hay mesas con encuestas para este evento.<br>
+        <small>Primero registra encuestas usando el módulo Encuestador.</small>
+      </p>
     </div>
     {% endif %}
-  </div>
-</div>
-
-{# Acceso rápido para nueva mesa #}
-<div class="card border-0 shadow-sm mt-4">
-  <div class="card-header bg-success text-white fw-semibold">
-    <i class="bi bi-plus-circle me-2"></i>Registrar nueva mesa
-  </div>
-  <div class="card-body">
-    <p class="text-muted small mb-3">Si tu mesa no aparece en la lista, busca su número aquí:</p>
-    <div class="row g-2">
-      <div class="col-md-4">
-        <input type="number" id="nuevaMesaId" class="form-control" placeholder="ID de la mesa">
-      </div>
-      <div class="col-md-3">
-        <button class="btn btn-success w-100" onclick="irAMesa()">
-          <i class="bi bi-arrow-right me-1"></i>Ingresar resultados
-        </button>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -157,10 +184,23 @@
 
 {% block extra_js %}
 <script>
-function irAMesa() {
-  const id = document.getElementById('nuevaMesaId').value;
-  if (!id) { alert('Escribe el ID de la mesa'); return; }
-  window.location = `/testigo/mesa/${id}/ingresar/?evento_id={{ evento_sel.pk }}`;
+function filtrarTabla() {
+  const puesto = document.getElementById('filtroPuesto').value;
+  const estado = document.getElementById('filtroEstado').value;
+  const mesa   = document.getElementById('filtroMesa').value.toLowerCase();
+  const filas  = document.querySelectorAll('#tablaMesas tbody tr');
+  let visibles = 0;
+
+  filas.forEach(fila => {
+    const okPuesto = !puesto || fila.dataset.puesto === puesto;
+    const okEstado = !estado || fila.dataset.estado === estado;
+    const okMesa   = !mesa   || fila.dataset.mesa.includes(mesa);
+    const visible  = okPuesto && okEstado && okMesa;
+    fila.style.display = visible ? '' : 'none';
+    if (visible) visibles++;
+  });
+
+  document.getElementById('contadorMesas').textContent = visibles + ' mesas';
 }
 </script>
 {% endblock %}

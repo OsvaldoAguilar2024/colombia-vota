@@ -733,29 +733,70 @@ def mapa_calor_votantes(request):
 
 @login_required
 def testigo_inicio(request):
-    """Seleccionar evento y ver mesas asignadas con su estado."""
+    """Muestra TODAS las mesas que tienen encuestas para el evento,
+    con su estado de escrutinio (sin sesion / borrador / cerrada)."""
     eventos = EventoElectoral.objects.filter(activo=True).order_by('-fecha')
     evento_id = request.GET.get('evento_id') or (eventos.first().pk if eventos.exists() else None)
     evento_sel = get_object_or_404(EventoElectoral, pk=evento_id) if evento_id else None
 
-    sesiones = []
+    mesas_data = []
+    puestos    = []
+
     if evento_sel:
-        # Mesas donde hay sesión ya creada por este testigo o sin testigo asignado
-        sesiones_qs = SesionEscrutinio.objects.filter(
-            evento=evento_sel
-        ).select_related('mesa', 'mesa__puesto', 'mesa__puesto__municipio', 'testigo')
+        # Todas las mesas que tienen al menos 1 encuesta en este evento
+        mesas_con_encuesta = MesaVotacion.objects.filter(
+            votantes__encuestas__evento=evento_sel
+        ).distinct().select_related(
+            'puesto', 'puesto__municipio', 'puesto__municipio__departamento'
+        ).order_by('puesto__municipio__nombre', 'puesto__nombre', 'numero')
 
-        # Stats globales del evento
-        total_mesas = MesaVotacion.objects.filter(
-            sesiones_escrutinio__evento=evento_sel
-        ).count()
+        # Sesiones existentes indexadas por mesa_id
+        sesiones_idx = {
+            s.mesa_id: s
+            for s in SesionEscrutinio.objects.filter(evento=evento_sel).select_related('testigo')
+        }
 
-        sesiones = list(sesiones_qs)
+        # Encuestas por mesa indexadas
+        from django.db.models import Count
+        enc_por_mesa = dict(
+            Encuesta.objects.filter(evento=evento_sel)
+            .values('votante__mesa_id')
+            .annotate(total=Count('id'))
+            .values_list('votante__mesa_id', 'total')
+        )
+
+        for mesa in mesas_con_encuesta:
+            sesion = sesiones_idx.get(mesa.pk)
+            mesas_data.append({
+                'mesa':    mesa,
+                'sesion':  sesion,
+                'estado':  sesion.estado if sesion else 'SIN_DATOS',
+                'encuestas': enc_por_mesa.get(mesa.pk, 0),
+            })
+
+        puestos = MesaVotacion.objects.filter(
+            votantes__encuestas__evento=evento_sel
+        ).values_list(
+            'puesto__pk', 'puesto__nombre', 'puesto__municipio__nombre'
+        ).distinct().order_by('puesto__municipio__nombre', 'puesto__nombre')
+
+        # Stats resumen
+        total   = len(mesas_data)
+        cerradas  = sum(1 for m in mesas_data if m['estado'] == 'CERRADA')
+        borradores = sum(1 for m in mesas_data if m['estado'] == 'BORRADOR')
+
+    else:
+        total = cerradas = borradores = 0
 
     return render(request, 'votacion/testigo/inicio.html', {
-        'eventos': eventos,
+        'eventos':   eventos,
         'evento_sel': evento_sel,
-        'sesiones': sesiones,
+        'mesas_data': mesas_data,
+        'puestos':   list(puestos) if evento_sel else [],
+        'total':     total,
+        'cerradas':  cerradas,
+        'borradores': borradores,
+        'pendientes': total - cerradas - borradores,
     })
 
 
